@@ -66,6 +66,13 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dwh_client", "dwh_client\dw
 		{39953D8D-A830-46BD-917E-1A96C8BDADC6} = {39953D8D-A830-46BD-917E-1A96C8BDADC6}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dwh_test_db", "dwh_test_db\dwh_test_db.vcxproj", "{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CBF2EB6D-0ABE-4D1C-B80C-0308AFC3CE5F} = {CBF2EB6D-0ABE-4D1C-B80C-0308AFC3CE5F}
+		{830AB681-B788-47D4-9767-BA4E0792F682} = {830AB681-B788-47D4-9767-BA4E0792F682}
+		{39953D8D-A830-46BD-917E-1A96C8BDADC6} = {39953D8D-A830-46BD-917E-1A96C8BDADC6}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -162,6 +169,14 @@ Global
 		{1765BF80-3F50-4E6A-9D9B-514AEEB8E0EB}.Release|x64.Build.0 = Release|x64
 		{1765BF80-3F50-4E6A-9D9B-514AEEB8E0EB}.Release|x86.ActiveCfg = Release|Win32
 		{1765BF80-3F50-4E6A-9D9B-514AEEB8E0EB}.Release|x86.Build.0 = Release|Win32
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Debug|x64.ActiveCfg = Debug|x64
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Debug|x64.Build.0 = Debug|x64
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Debug|x86.ActiveCfg = Debug|Win32
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Debug|x86.Build.0 = Debug|Win32
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Release|x64.ActiveCfg = Release|x64
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Release|x64.Build.0 = Release|x64
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Release|x86.ActiveCfg = Release|Win32
+		{8B15D3E6-9F4A-47D6-A3B6-3347BDEA0FED}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

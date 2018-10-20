@@ -15,34 +15,8 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dwh.cpp">
+    <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dwh_storage_server.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dwh_db.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="dwh_command.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dwh_client_session.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dwh_client_exports.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dwh_storage_server.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dwh_db.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dwh_datatype.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
