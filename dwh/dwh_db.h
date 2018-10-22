@@ -38,6 +38,7 @@ namespace dwh
 		
 	struct SDB {		
 							::gpk::label											Name						= {};
+							::gpk::label											Path						= {};
 							::gpk::array_obj<::gpk::label>							TableNames					= {};		// used for dbRecordLoad outputBytes parameter
 							::gpk::array_obj<::gpk::label>							UserNames					= {};		// used for dbRecordLoad outputBytes parameter
 							::gpk::array_obj<::dwh::SDBUserAccessRights>			UserAccessRights			= {};

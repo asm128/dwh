@@ -8,8 +8,9 @@
 namespace dwh 
 {
 	struct SDWHClientManager {
-							::gpk::array_obj<::gpk::SUDPClient>			Clients;
-							::gpk::array_obj<::dwh::SDWHSession>		Sessions;
+							::gpk::array_obj<::gpk::SUDPClient>						Clients					= {};
+							::gpk::array_obj<::dwh::SDWHSession>					Sessions				= {};
+							::gpk::array_obj<::dwh::SDWHSessionKeys>				Keys					= {};
 	};
 } // namespace 
 

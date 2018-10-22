@@ -6,7 +6,7 @@
 
 //#define DATABASE_FILE_EXTENSION		"dbh"
 
-		::gpk::error_t					appendLabelList					(::gpk::array_pod<byte_t>& output, const ::gpk::array_obj<::gpk::label> & labels)				{ 
+static	::gpk::error_t					appendLabelList					(::gpk::array_pod<byte_t>& output, const ::gpk::array_obj<::gpk::label> & labels)				{ 
 	uint32_t									countLabels						= labels.size();					
 	gpk_necall(output.append((const byte_t*)&countLabels, sizeof(uint32_t)), "Out of memory? output size. %u.", output.size());
 	for(uint32_t iLabel = 0; iLabel < countLabels; ++iLabel) {
@@ -18,7 +18,7 @@
 	return 0;
 }
 
-		::gpk::error_t					readLabelList					(::gpk::view_stream<byte_t>& fileStream, ::gpk::array_obj<::gpk::label>& labels)				{ //(::gpk::array_obj<::gpk::label>& labels, ::gpk::view_stream<byte_t>& fileStream)																															{ 
+static	::gpk::error_t					readLabelList					(::gpk::view_stream<byte_t>& fileStream, ::gpk::array_obj<::gpk::label>& labels)				{ //(::gpk::array_obj<::gpk::label>& labels, ::gpk::view_stream<byte_t>& fileStream)																															{ 
 	uint32_t									countLabels						= 0;							
 	gpk_necall(fileStream.read_pod(countLabels), "Invalid stream size: %u.", fileStream.size());
 	const uint32_t								labelOffset						= labels.size();
@@ -32,7 +32,7 @@
 	return 0;
 }
 
-		::gpk::error_t					dbFileName						(const ::gpk::view_const_string& name, const ::gpk::view_const_string& path, char_t* fileName, uint32_t* nameLen)																										{ 
+static	::gpk::error_t					dbFileName						(const ::gpk::view_const_string& name, const ::gpk::view_const_string& path, char_t* fileName, uint32_t* nameLen)																										{ 
 	::gpk::array_pod<byte_t>					hexedDBName						= {};	// Store to disk
 	::gpk::hexEncode({(const ubyte_t*)name.begin(), name.size()}, hexedDBName);
 	hexedDBName.push_back(0);
