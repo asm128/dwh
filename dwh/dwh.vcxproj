@@ -169,6 +169,7 @@
   <ItemGroup>
     <ClCompile Include="dwh.cpp" />
     <ClCompile Include="dwh_db.cpp" />
+    <ClCompile Include="dwh_session.cpp" />
     <ClCompile Include="dwh_storage_server.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -177,6 +178,7 @@
     <ClInclude Include="dwh_command.h" />
     <ClInclude Include="dwh_datatype.h" />
     <ClInclude Include="dwh_db.h" />
+    <ClInclude Include="dwh_session.h" />
     <ClInclude Include="dwh_storage_server.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
