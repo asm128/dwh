@@ -1,10 +1,10 @@
 #include "dwh_session.h"
 
-int										main									()					{
-	::dwh::SSessionAuthority					authority								= {};
-	::dwh::SSessionClient						client									= {};
-	::dwh::SSessionService						service									= {};
-	::gpk::array_pod <byte_t>					output, input							= {}; 
+int												main									()					{
+	::dwh::SSessionAuthority							authority								= {};
+	::dwh::SSessionClient								client									= {};
+	::dwh::SSessionServer								service									= {};
+	::gpk::array_pod <byte_t>							output, input							= {}; 
 
 // ----------- Client reports to authority and receives keys and session information - BEGIN
 	gpk_necall(::dwh::authorityClientIdentifyRequest			(client		, output)		, "%s", "Unknown error.");	// 0. Client sends a request to the authority server and software identifier.																
@@ -21,10 +21,32 @@ int										main									()					{
 
 	gpk_necall(::dwh::sessionServerAccept						(service	, output, input), "%s", "Unknown error.");	// 5. Service server sends a response to the client containing the symmetric keys for the rest of the communication.						
 	gpk_necall(::dwh::sessionClientAccepted						(client		, input, output), "%s", "Unknown error.");	// 6. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+
+	info_printf("Client connected. Symmetric key: %llu.", client.KeySymmetric);
 // ----------- Client connects to the service - END
 
 // ----------- 
-	gpk_necall(::dwh::sessionClientEncrypt						(client		, input, output), "%s", "Unknown error.");	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
-	gpk_necall(::dwh::sessionClientDecrypt						(client		, output, input), "%s", "Unknown error.");	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+	{
+		input										= "Client encryption test";
+		output	.clear(); 
+		gpk_necall(::dwh::sessionClientEncrypt(client, input, output), "%s", "Unknown error.");	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+
+		::gpk::array_pod <byte_t>						testServerDecrypt						= {}; 
+		gpk_necall(::dwh::sessionServerDecrypt(service, client.IdClient, output, testServerDecrypt), "%s", "Unknown error.");	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+		error_if(testServerDecrypt.size() != input.size(), "%s", "Client failed to decrypt.");
+		error_if(memcmp(testServerDecrypt.begin(), input.begin(), testServerDecrypt.size()), "%s", "Server failed to decrypt.");
+		info_printf("Message decrypted by server: %s.", testServerDecrypt.begin());
+	}
+	{
+		input										= "Server encryption test";
+		output.clear(); 
+		gpk_necall(::dwh::sessionServerEncrypt(service, client.IdClient, input, output), "%s", "Unknown error.");	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+
+		::gpk::array_pod <byte_t>						testClientDecrypt						= {}; 
+		gpk_necall(::dwh::sessionClientDecrypt(client, output, testClientDecrypt), "%s", "Unknown error.");	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+		error_if(testClientDecrypt.size() != input.size(), "%s", "Client failed to decrypt.");
+		error_if(memcmp(testClientDecrypt.begin(), input.begin(), testClientDecrypt.size()), "%s", "Client failed to decrypt.");
+		info_printf("Message decrypted by client: %s.", testClientDecrypt.begin());
+	}
 	return 0;
 }

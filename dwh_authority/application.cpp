@@ -1,6 +1,7 @@
 #include "application.h"
 #include "gpk_bitmap_file.h"
 #include "gpk_tcpip.h"
+#include "gpk_connection.h"
 
 //#define GPK_AVOID_LOCAL_APPLICATION_MODULE_MODEL_EXECUTABLE_RUNTIME
 #include "gpk_app_impl.h"
@@ -70,12 +71,40 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	}
 	{
 		::gpk::mutex_guard														lock						(app.Server.Mutex);
+
+		//SESSION_STAGE_CLIENT_CLOSED					= 0	// sessionClose							()
+		//SESSION_STAGE_CLIENT_IDENTIFY						// authorityClientIdentifyRequest		() // Client	-> Authority	// Processed by authority
+		//SESSION_STAGE_AUTHORITY_IDENTIFY					// authorityServerIdentifyResponse		() // Authority	-> Client		// Processed by client
+		//SESSION_STAGE_CLIENT_REQUEST_SERVICE_START		// sessionClientStart					() // Client	-> Service		// Processed by service
+		//SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST		// authorityServiceConfirmClientRequest	() // Service	-> Authority	// Processed by authority
+		//SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT			// authorityServerConfirmClientResponse	() // Authority	-> Service		// Processed by service
+		//SESSION_STAGE_SERVER_ACCEPT_CLIENT				// sessionServerAccept					() // Service	-> Client		// Processed by client
+		//SESSION_STAGE_CLIENT_IDLE							// sessionClientAccepted				() // Client	-> IDLE			// Processed by client/service
+
+		::gpk::array_pod<byte_t>												response;
 		for(uint32_t iClient = 0; iClient < app.Server.Clients.size(); ++iClient) {
-			::gpk::mutex_guard														lockRecv					(app.Server.Clients[iClient]->Queue.MutexReceive);
-			for(uint32_t iMessage = 0; iMessage < app.Server.Clients[iClient]->Queue.Received.size(); ++iMessage) {
-				info_printf("Received: %s.", app.Server.Clients[iClient]->Queue.Received[iMessage]->Payload.begin());
+			::gpk::ptr_nco<::gpk::SUDPConnection>									pclient						= app.Server.Clients[iClient];
+			if(0 == pclient || pclient->Socket == INVALID_SOCKET || pclient->State == ::gpk::UDP_CONNECTION_STATE_DISCONNECTED)
+				continue;
+			::gpk::SUDPConnection													& client					= *pclient;
+			::gpk::mutex_guard														lockRecv					(client.Queue.MutexReceive);
+			for(uint32_t iMessage = 0; iMessage < client.Queue.Received.size(); ++iMessage) {
+				::gpk::ptr_nco<::gpk::SUDPConnectionMessage>							pmsg						= client.Queue.Received[iMessage];
+				if(0 == pmsg || 0 == pmsg->Payload.size())
+					continue;
+				::gpk::SUDPConnectionMessage											& msg						= *pmsg;
+				info_printf("Received: %s.", msg.Payload.begin());
+				response.clear();
+				::dwh::SESSION_STAGE													command						= (::dwh::SESSION_STAGE)msg.Payload[0];
+				switch(command) {																			  
+				case ::dwh::SESSION_STAGE_CLIENT_IDENTIFY					: ce_if(errored(::dwh::authorityServerIdentifyResponse		(app.Authority, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)msg.Payload[0]); ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command); break;
+				case ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST	: ce_if(errored(::dwh::authorityServerConfirmClientResponse	(app.Authority, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command); break;
+				default: 
+					error_printf("Unrecognized session command: %u.");
+					break;
+				}
 			}
-			app.Server.Clients[iClient]->Queue.Received.clear();
+			client.Queue.Received.clear();
 		}
 	}
 
@@ -83,7 +112,6 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
 }
-
 
 			::gpk::error_t											draw					(::gme::SApplication & app)						{ 
 	::gpk::STimer															timer;
