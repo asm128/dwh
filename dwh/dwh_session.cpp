@@ -1,5 +1,6 @@
 #include "dwh_session.h"
 #include "gpk_rsa.h"
+#include "gpk_chrono.h"
 
 static constexpr	const uint32_t				SIZE_MAX_CERTIFICATE										= 2048;
 static constexpr	const uint32_t				SIZE_MAX_KEY												= 256;
@@ -58,9 +59,13 @@ struct SSessionServerAccept						{
 		if(dataReceived.Certificate[iByte] != (ubyte_t)(::gpk::size(dataReceived.Certificate) - 1 - iByte))
 			validCertificate								= false;
 
+
+
 	// Evaluate certificate and client information and send public keys to client.
 
 	::SAuthorityServerIdentifyResponse					dataToSend											= {};
+	dataToSend.ClientId[0]							= ::gpk::timeCurrentInUs();
+
 	gpk_necall(output.resize(sizeof(::SAuthorityServerIdentifyResponse)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(::SAuthorityServerIdentifyResponse));
 	return 0; 
