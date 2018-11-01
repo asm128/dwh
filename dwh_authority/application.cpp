@@ -9,7 +9,7 @@
 GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 			::gpk::error_t											cleanup						(::gme::SApplication & app)						{ 
-	::gpk::serverStop(app.Server);
+	::gpk::serverStop(app.Server.UDPServer);
 	::gpk::mainWindowDestroy(app.Framework.MainDisplay);
 	::gpk::tcpipShutdown();
 	return 0; 
@@ -19,7 +19,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::SFramework														& framework					= app.Framework;
 	::gpk::SDisplay															& mainWindow				= framework.MainDisplay;
 	framework.Input.create();
-	error_if(errored(::gpk::mainWindowCreate(mainWindow, framework.RuntimeValues.PlatformDetail, framework.Input)), "Failed to create main window why?????!?!?!?!?");
+	error_if(errored(::gpk::mainWindowCreate(mainWindow, framework.RuntimeValues.PlatformDetail, framework.Input)), "Failed to create main window!!! Why?????!?!?!?!?");
 	::gpk::SGUI																& gui						= framework.GUI;
 	app.IdExit															= ::gpk::controlCreate(gui);
 	::gpk::SControl															& controlExit				= gui.Controls.Controls[app.IdExit];
@@ -35,9 +35,10 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	controlConstraints.AttachSizeToText.x								= app.IdExit;
 	::gpk::controlSetParent(gui, app.IdExit, -1);
 	::gpk::tcpipInitialize();
-	::gpk::serverStart(app.Server, 9998);
+	::gpk::serverStart(app.Server.UDPServer, 32766);
 	return 0; 
 }
+
 
 			::gpk::error_t											update						(::gme::SApplication & app, bool exitSignal)	{ 
 	::gpk::STimer															timer;
@@ -69,45 +70,8 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 				return 1;
 		}
 	}
-	{
-		::gpk::mutex_guard														lock						(app.Server.Mutex);
 
-		//SESSION_STAGE_CLIENT_CLOSED					= 0	// sessionClose							()
-		//SESSION_STAGE_CLIENT_IDENTIFY						// authorityClientIdentifyRequest		() // Client	-> Authority	// Processed by authority
-		//SESSION_STAGE_AUTHORITY_IDENTIFY					// authorityServerIdentifyResponse		() // Authority	-> Client		// Processed by client
-		//SESSION_STAGE_CLIENT_REQUEST_SERVICE_START		// sessionClientStart					() // Client	-> Service		// Processed by service
-		//SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST		// authorityServiceConfirmClientRequest	() // Service	-> Authority	// Processed by authority
-		//SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT			// authorityServerConfirmClientResponse	() // Authority	-> Service		// Processed by service
-		//SESSION_STAGE_SERVER_ACCEPT_CLIENT				// sessionServerAccept					() // Service	-> Client		// Processed by client
-		//SESSION_STAGE_CLIENT_IDLE							// sessionClientAccepted				() // Client	-> IDLE			// Processed by client/service
-
-		::gpk::array_pod<byte_t>												response;
-		for(uint32_t iClient = 0; iClient < app.Server.Clients.size(); ++iClient) {
-			::gpk::ptr_nco<::gpk::SUDPConnection>									pclient						= app.Server.Clients[iClient];
-			if(0 == pclient || pclient->Socket == INVALID_SOCKET || pclient->State == ::gpk::UDP_CONNECTION_STATE_DISCONNECTED)
-				continue;
-			::gpk::SUDPConnection													& client					= *pclient;
-			::gpk::mutex_guard														lockRecv					(client.Queue.MutexReceive);
-			for(uint32_t iMessage = 0; iMessage < client.Queue.Received.size(); ++iMessage) {
-				::gpk::ptr_nco<::gpk::SUDPConnectionMessage>							pmsg						= client.Queue.Received[iMessage];
-				if(0 == pmsg || 0 == pmsg->Payload.size())
-					continue;
-				::gpk::SUDPConnectionMessage											& msg						= *pmsg;
-				info_printf("Received: %s.", msg.Payload.begin());
-				response.clear();
-				::dwh::SESSION_STAGE													command						= (::dwh::SESSION_STAGE)msg.Payload[0];
-				switch(command) {																			  
-				case ::dwh::SESSION_STAGE_CLIENT_IDENTIFY					: ce_if(errored(::dwh::authorityServerIdentifyResponse		(app.Authority, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)msg.Payload[0]); ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command); break;
-				case ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST	: ce_if(errored(::dwh::authorityServerConfirmClientResponse	(app.Authority, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command); break;
-				default: 
-					error_printf("Unrecognized session command: %u.");
-					break;
-				}
-			}
-			client.Queue.Received.clear();
-		}
-	}
-
+	error_if(errored(::dwh::authorityUpdate(app.Server.UDPServer, app.Server.Authority)), "%s.", "Unknown error");
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 

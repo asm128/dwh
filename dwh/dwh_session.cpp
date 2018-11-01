@@ -3,45 +3,54 @@
 #include "gpk_chrono.h"
 #include "gpk_noise.h"
 
-static constexpr	const uint32_t				SIZE_MAX_CERTIFICATE										= 2040;
-static constexpr	const uint32_t				SIZE_MAX_KEY												= 256;
-static constexpr	const uint32_t				SIZE_MAX_CLIENT_ID											= 256;
+static constexpr	const uint32_t				SIZE_MAX_CERTIFICATE										= 2048;
+static constexpr	const uint32_t				SIZE_MAX_KEY												= 2048;
+static constexpr	const uint32_t				SIZE_MAX_CLIENT_ID											= 2048;
 
 #pragma pack(push, 1)
+
 struct SAuthorityClientIdentifyRequest			{
-						::dwh::SESSION_STAGE		Command														= ::dwh::SESSION_STAGE_CLIENT_CLOSED;
+						::dwh::SSessionCommand		Command														= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					IdServer													= (uint64_t)-1LL;
-						uint64_t					Certificate			[SIZE_MAX_CERTIFICATE]					= {};
+						uint64_t					Certificate			[SIZE_MAX_CERTIFICATE - 1]				= {};
 };
 
 struct SAuthorityServerIdentifyResponse			{
-						::dwh::SESSION_STAGE		Command														= ::dwh::SESSION_STAGE_CLIENT_CLOSED;
+						::dwh::SSessionCommand		Command														= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						::dwh::SKeyPair				Keys														= {};
-						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]					= {};
+						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 4]				= {};
 };
 
 struct SSessionClientStart						{
-						::dwh::SESSION_STAGE		Command														= ::dwh::SESSION_STAGE_CLIENT_CLOSED;
+						::dwh::SSessionCommand		Command														= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]					= {};
 };
 
 struct SAuthorityServiceConfirmClientRequest	{
-						::dwh::SESSION_STAGE		Command														= ::dwh::SESSION_STAGE_CLIENT_CLOSED;
-						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]					= {};
+						::dwh::SSessionCommand		Command														= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					IdServer													= {};
+						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 1]					= {};
 };
 
 struct SAuthorityServerConfirmClientResponse	{
-						::dwh::SESSION_STAGE		Command														= ::dwh::SESSION_STAGE_CLIENT_CLOSED;
+						::dwh::SSessionCommand		Command														= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						::dwh::SKeyPair				Keys														= {};
-						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 32]				= {};
+						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 4]				= {};
 };
 
-struct SSessionServerAccept						{
-						::dwh::SESSION_STAGE		Command														= ::dwh::SESSION_STAGE_CLIENT_CLOSED;
-						uint64_t					KeysSymmetric		[SIZE_MAX_KEY]							= {};
+struct SSessionServerAccept	{
+						::dwh::SSessionCommand		Command														= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
+						uint64_t					KeySize														= 0;
+						uint64_t					KeysSymmetric		[SIZE_MAX_KEY - 1]						= {};
 };
 
+static constexpr const size_t z = sizeof(::dwh::SKeyPair);
+static constexpr const size_t a = sizeof(SAuthorityClientIdentifyRequest);
+static constexpr const size_t b = sizeof(SAuthorityServerIdentifyResponse);
+static constexpr const size_t c = sizeof(SSessionClientStart);
+static constexpr const size_t d = sizeof(SAuthorityServiceConfirmClientRequest);
+static constexpr const size_t e = sizeof(SAuthorityServerConfirmClientResponse);
+static constexpr const size_t f = sizeof(SSessionServerAccept);
 //struct SSessionClientAccepted					{};
 #pragma pack(pop)
 
@@ -53,7 +62,7 @@ struct SSessionServerAccept						{
 	client.RSAKeys									= {};
 
 	::SAuthorityClientIdentifyRequest					dataToSend											= {};
-	dataToSend.Command								= ::dwh::SESSION_STAGE_CLIENT_IDENTIFY;
+	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_CLIENT_IDENTIFY;
 	// Fill initial request with certificate and client information.
 	for(uint32_t iByte = 0; iByte < ::gpk::size(dataToSend.Certificate); ++iByte)	
 		dataToSend.Certificate[iByte]					= (ubyte_t)(::gpk::size(dataToSend.Certificate) - 1 - iByte);
@@ -72,8 +81,9 @@ struct SSessionServerAccept						{
 
 	bool												validCertificate									= true;
 	bool												validServerId										= authority.Servers.size() > dataReceived.IdServer;
-	uint64_t											idClient											= 0;
+	uint64_t											idClient											= (uint64_t)-1LL;
 	::dwh::SKeyPair										keysClient											= {};
+	int32_t												indexClient											= -1;
 	if(false == validServerId) 
 	{}
 	else {
@@ -82,7 +92,7 @@ struct SSessionServerAccept						{
 			if(dataReceived.Certificate[iByte] != (ubyte_t)(::gpk::size(dataReceived.Certificate) - 1 - iByte)) 
 				validCertificate								= false;
 	
-		idClient										= validCertificate ? ::gpk::timeCurrentInUs() : (uint64_t)-1LL;
+		idClient										= validCertificate ? ::gpk::timeCurrentInUs() : (uint64_t)0;
 		if(validCertificate) { // Initialize a record for this client if the request is valid
 			::dwh::SSessionClientRecord							newClient											= {};
 			newClient.Stage									= ::dwh::SESSION_STAGE_AUTHORITY_IDENTIFY;
@@ -116,12 +126,12 @@ struct SSessionServerAccept						{
 			newClient.RSAKeysClient.Public					= clienttoserverpublic;
 			newClient.RSAKeysClient.PublicN					= clienttoservern;
 
-			newClient.RSAKeysServer.Private				= clienttoserverprivate;
+			newClient.RSAKeysServer.Private					= clienttoserverprivate;
 			newClient.RSAKeysServer.PrivateN				= clienttoservern;
 			newClient.RSAKeysServer.Public					= servertoclientpublic;
-			newClient.RSAKeysServer.PublicN				= servertoclientn;		
+			newClient.RSAKeysServer.PublicN					= servertoclientn;		
 
-			gpk_necall(authority.Servers[(uint32_t)dataReceived.IdServer].Clients.push_back(newClient), "Out of memory?");
+			gpk_necall(indexClient = authority.Servers[(uint32_t)dataReceived.IdServer].Clients.push_back(newClient), "Out of memory?");
 
 			keysClient										= newClient.RSAKeysClient;
 		}
@@ -129,14 +139,16 @@ struct SSessionServerAccept						{
 
 	// Send keys to client.
 	::SAuthorityServerIdentifyResponse					dataToSend											= {};
-	dataToSend.Command								= ::dwh::SESSION_STAGE_AUTHORITY_IDENTIFY;
+	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_AUTHORITY_IDENTIFY;
 	dataToSend.Keys									= keysClient;
 	if(false == validCertificate) {
-		memset(dataToSend.IdClient, 0xFF, ::gpk::size(dataToSend.IdClient) * sizeof(dataToSend.IdClient[0]));
+		//memset(dataToSend.IdClient, 0xFF, ::gpk::size(dataToSend.IdClient) * sizeof(dataToSend.IdClient[0]));
+		dataToSend.IdClient[0]							= idClient;
 		dataToSend.Keys.Public							= (uint64_t)-1LL;
 	}
 	else if(false == validServerId) {
-		memset(dataToSend.IdClient, 0xFF, ::gpk::size(dataToSend.IdClient) * sizeof(dataToSend.IdClient[0]));
+		//memset(dataToSend.IdClient, 0xFF, ::gpk::size(dataToSend.IdClient) * sizeof(dataToSend.IdClient[0]));
+		dataToSend.IdClient[0]							= idClient;
 		dataToSend.Keys.Public							= (uint64_t)-2LL;
 	}
 	else {
@@ -144,11 +156,12 @@ struct SSessionServerAccept						{
 	}
 	gpk_necall(output.resize(sizeof(::SAuthorityServerIdentifyResponse)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(::SAuthorityServerIdentifyResponse));
-	return 0; 
+	return indexClient; 
 }	
 
 // Client sends a request to the service's server.																						
 					::gpk::error_t				dwh::sessionClientStart								(::dwh::SSessionClient		& client	, ::gpk::view_array<byte_t> & input, ::gpk::array_pod<byte_t> & output)				{ ;   client	, input	, output; 
+	ree_if(client.Stage != SESSION_STAGE_CLIENT_IDENTIFY, "Invalid client stage: %x.", client.Stage);
 	client.Stage									= ::dwh::SESSION_STAGE_CLIENT_REQUEST_SERVICE_START;
 	::SAuthorityServerIdentifyResponse					& dataReceived										= *(::SAuthorityServerIdentifyResponse*)input.begin();
 
@@ -158,7 +171,7 @@ struct SSessionServerAccept						{
 	// Build service connection request encrypted with the public key received from the authority server.
 
 	::SSessionClientStart								dataToSend											= {};
-	dataToSend.Command								= ::dwh::SESSION_STAGE_CLIENT_REQUEST_SERVICE_START;
+	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_CLIENT_REQUEST_SERVICE_START;
 	dataToSend.IdClient[0]							= client.IdClient;
 	gpk_necall(output.resize(sizeof(SSessionClientStart)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(SSessionClientStart));
@@ -169,28 +182,31 @@ struct SSessionServerAccept						{
 					::gpk::error_t				dwh::authorityServiceConfirmClientRequest			(::dwh::SSessionServer		& service	, ::gpk::view_array<byte_t> & input, ::gpk::array_pod<byte_t> & output)				{ ;   service	, input	, output; 
 	::SSessionClientStart								dataReceived										= *(::SSessionClientStart*)input.begin();
 
-	bool												invalidClient										= false;
+	uint32_t											invalidClient										= (uint32_t)-1;
 	for(uint32_t iClient = 0, countClients = service.Clients.size(); iClient < countClients; ++iClient)
 		if(service.Clients[iClient].IdClient == dataReceived.IdClient[0]) {
-			invalidClient								= true;
+			invalidClient									= iClient;
 			error_printf("Client already exists: %llu.", service.Clients[iClient].IdClient);
 			memset(dataReceived.IdClient, 0xFF, ::gpk::size(dataReceived.IdClient) * sizeof(dataReceived.IdClient[0]));
 		}
 
-	if(false == invalidClient) {
+	int32_t												validClient											= -1;
+	error_if(-1 != invalidClient, "Client id already exists at index: %u. Client id: %llu.", invalidClient, dataReceived.IdClient[0])
+	else {
 		::dwh::SSessionClientRecord							newClient;
 		newClient.Stage									= ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST;
 		newClient.IdClient								= dataReceived.IdClient[0];
-		service.Clients.push_back(newClient);
+		validClient										= service.Clients.push_back(newClient);
 	}
 
 	// Build request with client information in order to query the authority server for the private key.
 	::SAuthorityServiceConfirmClientRequest				dataToSend											= {};
-	dataToSend.Command								= ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST;
+	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST;
 	dataToSend.IdClient[0]							= dataReceived.IdClient[0];
+	dataToSend.IdServer								= 0;
 	gpk_necall(output.resize(sizeof(SAuthorityServiceConfirmClientRequest)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(SAuthorityServiceConfirmClientRequest));
-	return 0; 
+	return validClient; 
 }	
 
 // Authority server sends a response to service with client information and the private key for decrypting the client password.			
@@ -198,25 +214,25 @@ struct SSessionServerAccept						{
 	::SAuthorityServiceConfirmClientRequest				dataReceived										= *(::SAuthorityServiceConfirmClientRequest*)input.begin();
 
 	// Build response with private key information in order to send to the service and allow it to decrypt the data received from the client.
-	bool												validClient											= false;
+	int32_t												validClient											= -1;
 	::dwh::SKeyPair										keysServer											= {};
 	{
 		::dwh::SSessionServer								server												= authority.Servers[(uint32_t)dataReceived.IdServer];
 		for(uint32_t iClient = 0, countClients = server.Clients.size(); iClient < countClients; ++iClient )
 			if(server.Clients[iClient].IdClient == dataReceived.IdClient[0]) {
 				keysServer										= server.Clients[iClient].RSAKeysServer;
-				validClient										= true;
+				validClient										= iClient;
 				server.Clients[iClient].Stage					= SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT;
 			}
 	}
 
 	::SAuthorityServerConfirmClientResponse				dataToSend											= {};
-	dataToSend.Command								= ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT;
+	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT;
 	dataToSend.Keys									= keysServer;				
 	dataToSend.IdClient[0]							= dataReceived.IdClient[0];
 	gpk_necall(output.resize(sizeof(SAuthorityServerConfirmClientResponse)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(SAuthorityServerConfirmClientResponse));
-	return validClient ? 0 : 1; 
+	return validClient; 
 }	
 
 // Service server sends a response to the client containing the symmetric keys for the rest of the communication.						
@@ -224,32 +240,47 @@ struct SSessionServerAccept						{
 	::SAuthorityServerConfirmClientResponse				dataReceived										= *(::SAuthorityServerConfirmClientResponse*)input.begin();
 
 	// Decrypt client data and build accept/reject response to be sent to the client.
-	bool												accepted											= false;
+	uint32_t											indexClient											= (uint32_t)-1LL;
+	uint64_t											keySymmetric										= (uint32_t)-1LL;
 	for(uint32_t iClient = 0, countClients = service.Clients.size(); iClient < countClients; ++iClient)
 		if(service.Clients[iClient].IdClient == dataReceived.IdClient[0]) {
-			accepted									= true;
+			keySymmetric								= ::gpk::noise1DBase(::gpk::timeCurrentInUs());
 			service.Clients[iClient].Stage				= ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT;
 			service.Clients[iClient].RSAKeysServer		= dataReceived.Keys;
+			service.Clients[iClient].KeySymmetric		= keySymmetric;
+			indexClient									= iClient;
 			break;
 		}
 
 	::SSessionServerAccept								dataToSend											= {};
-	dataToSend.Command								= ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT;
-	if(accepted) 
-		dataToSend.KeysSymmetric[0]						= ::gpk::noise1DBase(::gpk::timeCurrentInUs());
-	else
+	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT;
+	if(-1 != (int32_t)indexClient) {
+		dataToSend.KeysSymmetric[0]						= keySymmetric;
+	}
+	else {
 		memset(dataToSend.KeysSymmetric, 0xFF, ::gpk::size(dataToSend.KeysSymmetric) * sizeof(dataToSend.KeysSymmetric[0]));
+		dataToSend.KeysSymmetric[0]						= keySymmetric;
+	}
+	info_printf("Sending key: %llx.", keySymmetric);
+	::gpk::array_pod<byte_t>							encrypted;
+	::dwh::sessionServerEncrypt(service, dataReceived.IdClient[0], {(const byte_t*)dataToSend.KeysSymmetric, sizeof(dataToSend.KeysSymmetric[0]) * 64}, encrypted);
+	dataToSend.KeySize								= encrypted.size();
+	memcpy_s(dataToSend.KeysSymmetric, ::gpk::size(dataToSend.KeysSymmetric) * sizeof(dataToSend.KeysSymmetric[0]), encrypted.begin(), dataToSend.KeySize);
+	info_printf("Encrypted key: %llx.", dataToSend.KeysSymmetric[0]);
 
 	gpk_necall(output.resize(sizeof(SSessionServerAccept)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(SSessionServerAccept));
-	return 0; 
+	return indexClient; 
 }	
 
 // Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 					::gpk::error_t				dwh::sessionClientAccepted							(::dwh::SSessionClient		& client	, ::gpk::view_array<byte_t> & input, ::gpk::array_pod<byte_t> & output)				{ ;   client	, input	, output; 
 	::SSessionServerAccept								dataReceived										= *(::SSessionServerAccept*)input.begin();
-
+	::gpk::array_pod<byte_t>							decrypted;
+	::dwh::sessionClientDecrypt(client, {(const byte_t*)dataReceived.KeysSymmetric, (uint32_t)dataReceived.KeySize}, decrypted);
 	// Evaluate server response to determine if we can enter into IDLE state or not.
+	memcpy_s(dataReceived.KeysSymmetric, ::gpk::size(dataReceived.KeysSymmetric) * sizeof(dataReceived.KeysSymmetric[0]), decrypted.begin(), decrypted.size());
+	::gpk::view_array<uint64_t>							keyView												= {dataReceived.KeysSymmetric};
 	ree_if(-1LL == (int64_t)(client.KeySymmetric = dataReceived.KeysSymmetric[0]),  "Service rejected communication.");
 	client.Stage									= ::dwh::SESSION_STAGE_CLIENT_IDLE;
 	//ree_if(client.KeySymmetric != 987654321ULL,  "Key test failed.");

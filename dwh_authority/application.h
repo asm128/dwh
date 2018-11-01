@@ -1,5 +1,4 @@
-#include "gpk_udp_server.h"
-#include "dwh_session.h"
+#include "dwh_session_udp.h"
 
 #include "gpk_framework.h"
 #include "gpk_gui.h"
@@ -14,9 +13,8 @@ namespace gme // I'm gonna use a different namespace in order to test a few thin
 	struct SApplication {
 		::gpk::SFramework														Framework;
 		::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		Offscreen							= {};
-		::gpk::SUDPServer														Server								= {};
 
-		::dwh::SSessionAuthority												Authority;
+		::dwh::SUDPSessionAuthority												Server								= {};
 
 		int32_t																	IdExit								= -1;
 

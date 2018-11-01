@@ -27,6 +27,9 @@
     <ClCompile Include="dwh_session.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dwh_session_udp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dwh_command.h">
@@ -48,6 +51,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dwh_session.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dwh_session_udp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
