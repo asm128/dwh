@@ -97,24 +97,34 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 				if(0 == pmsg || 0 == pmsg->Payload.size())
 					continue;
 				::gpk::SUDPConnectionMessage											& msg						= *pmsg;
-				info_printf("Received: %s.", msg.Payload.begin());
+				info_printf("Received: %.1024s.", msg.Payload.begin());
 				response.clear();
 				::dwh::SSessionCommand													command						= *(::dwh::SSessionCommand*)&msg.Payload[0];
 				switch(command.Command) {																			  
 				case ::dwh::SESSION_STAGE_CLIENT_REQUEST_SERVICE_START	: 
-					ce_if(errored(::dwh::authorityServiceConfirmClientRequest(app.SessionServer, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)command.Command); 
-					ce_if(errored(::gpk::connectionPushData(app.UDPClient, app.UDPClient.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+					{
+						int32_t																indexClient					= -1; 
+						ce_if(errored(indexClient = ::dwh::authorityServiceConfirmClientRequest(app.SessionServer, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)command.Command); 
+						app.SessionMap.push_back({(int32_t)iClient, indexClient});
+						::gpk::clientDisconnect(app.UDPClient);
+						::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, app.UDPClient.AddressConnect);
+						ree_if(errored(::gpk::clientConnect(app.UDPClient)), "Failed to connect to authority server at: %u.%u.%u.%u:%u.", GPK_IPV4_EXPAND(app.UDPClient.AddressConnect));
+						ce_if(errored(::gpk::connectionPushData(app.UDPClient, app.UDPClient.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+					}
 					break;
 				//case ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT		: 
 				//	ce_if(errored(::dwh::sessionServerAccept(app.SessionServer, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); 
 				//	ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command); break;
 				default: 
-					error_printf("Unrecognized session command: %u.");
+					error_printf("Unrecognized session command: %u.", command.Command);
 					break;
 				}
 			}
 		}
 	}
+
+	if(app.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE)
+		::gpk::clientUpdate(app.UDPClient);
 
 	::gpk::SUDPConnection													& client					= app.UDPClient;
 	::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>			received;
@@ -140,13 +150,11 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		case ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT		: 
 			ce_if(errored(indexClientAccepted = ::dwh::sessionServerAccept(app.SessionServer, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)command.Command); 
 			ce_if(app.SessionServer.Clients.size() <= (uint32_t)indexClientAccepted, "Invalid client index: %i.", indexClientAccepted);
-
-			for(uint32_t iClient = 0; iClient < app.SessionServer.Clients.size(); ++iClient) {
-			}
-			ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+			indexClientAccepted = app.SessionMap[indexClientAccepted].IdConnection;
+			ce_if(errored(::gpk::connectionPushData(*app.UDPServer.Clients[indexClientAccepted], app.UDPServer.Clients[indexClientAccepted]->Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
 			break;
 		default: 
-			error_printf("Unrecognized session command: %u.");
+			error_printf("Unrecognized session command: %u.", (uint32_t)command.Command);
 			break;
 		}
 	}

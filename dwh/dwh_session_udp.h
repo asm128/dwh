@@ -8,8 +8,11 @@
 namespace dwh
 {
 	struct SUDPSessionAuthority { ::dwh::SSessionAuthority	Authority	= {}; ::gpk::SUDPServer		UDPServer	= {}; };
-	struct SUDPSessionClient	{ ::dwh::SSessionClient		Client		= {}; ::gpk::SUDPClient		UDPClient	= {}; };
 	struct SUDPSessionServer	{ ::dwh::SSessionServer		Server		= {}; ::gpk::SUDPServer		UDPServer	= {}; ::gpk::SUDPClient UDPClient = {}; };
+	struct SUDPSessionClient	{ ::dwh::SSessionClient		Client		= {}; ::gpk::SUDPClient		UDPClient	= {}; 
+		::gpk::SIPv4					AddressServer					= {}; 
+		::gpk::SIPv4					AddressAuthority				= {}; 
+	};
 
 	::gpk::error_t					authorityUpdate					(::gpk::SUDPServer& udpServer, ::dwh::SSessionAuthority & authority);
 } // namespace 

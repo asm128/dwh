@@ -25,6 +25,7 @@ namespace gme // I'm gonna use a different namespace in order to test a few thin
 
 		::dwh::SSessionServer													SessionServer;
 
+		::gpk::array_pod<SUDPSessionMap>										SessionMap;
 
 		int32_t																	IdExit								= -1;
 

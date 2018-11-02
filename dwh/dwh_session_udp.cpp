@@ -27,14 +27,20 @@
 			if(0 == pmsg || 0 == pmsg->Payload.size())
 				continue;
 			::gpk::SUDPConnectionMessage											& msg						= *pmsg;
-			info_printf("Received: %s.", msg.Payload.begin());
 			response.clear();
 			::dwh::SSessionCommand													command						= *(::dwh::SSessionCommand*)&msg.Payload[0];
+			info_printf("Received command: %u.", command.Command);
 			switch(command.Command) {																			  
-			case ::dwh::SESSION_STAGE_CLIENT_IDENTIFY					: ce_if(errored(::dwh::authorityServerIdentifyResponse		(authority, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)msg.Payload[0]); ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); break;
-			case ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST	: ce_if(errored(::dwh::authorityServerConfirmClientResponse	(authority, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); break;
+			case ::dwh::SESSION_STAGE_CLIENT_IDENTIFY					: 
+				ce_if(errored(::dwh::authorityServerIdentifyResponse		(authority, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)msg.Payload[0]); 
+				ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+				break;
+			case ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST	: 
+				ce_if(errored(::dwh::authorityServerConfirmClientResponse	(authority, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); 
+				ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+				break;
 			default: 
-				error_printf("Unrecognized session command: %u.");
+				error_printf("Unrecognized session command: %u.", (uint32_t)command.Command);
 				break;
 			}
 		}

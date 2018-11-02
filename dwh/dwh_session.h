@@ -53,7 +53,7 @@ namespace dwh
 						uint64_t						IdClient									= (uint64_t)-1LL;
 						uint64_t						IdServer									= (uint64_t)-1LL;
 						SKeyPair						RSAKeys										= {};
-						uint64_t						KeySymmetric								= 0;
+						uint64_t						KeySymmetric	[2048]						= {};
 	};
 
 	struct SSessionClientRecord	{ 
@@ -61,7 +61,8 @@ namespace dwh
 						uint64_t						IdClient									= (uint64_t)-1LL;
 						SKeyPair						RSAKeysClient								= {};
 						SKeyPair						RSAKeysServer								= {};
-						uint64_t						KeySymmetric								= 0;
+						uint64_t						KeySize										= {};
+						uint64_t						KeySymmetric	[2048]						= {};
 	};
 
 #pragma pack(pop)
@@ -83,7 +84,7 @@ namespace dwh
 						::gpk::error_t				sessionServerDecrypt						(::dwh::SSessionServer		& client	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 						::gpk::error_t				sessionHash									(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, uint64_t & output);
 
-	static constexpr	const uint64_t		NOISE_SEED									= ::gpk::NOISE_SEED;
+	static constexpr	const uint64_t				NOISE_SEED									= ::gpk::NOISE_SEED;
 }
 
 
