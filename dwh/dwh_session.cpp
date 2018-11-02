@@ -244,7 +244,7 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 	uint64_t											keySymmetric										= (uint32_t)-1LL;
 	for(uint32_t iClient = 0, countClients = service.Clients.size(); iClient < countClients; ++iClient)
 		if(service.Clients[iClient].IdClient == dataReceived.IdClient[0]) {
-			keySymmetric								= ::gpk::noise1DBase(::gpk::timeCurrentInUs());
+			keySymmetric								= ::gpk::noise1DBase(::gpk::timeCurrentInUs() + ::gpk::noise1DBase(::gpk::timeCurrentInUs()), ::gpk::timeCurrentInUs() * 32749);
 			service.Clients[iClient].Stage				= ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT;
 			service.Clients[iClient].RSAKeysServer		= dataReceived.Keys;
 			service.Clients[iClient].KeySymmetric		= keySymmetric;
@@ -283,7 +283,6 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 	::gpk::view_array<uint64_t>							keyView												= {dataReceived.KeysSymmetric};
 	ree_if(-1LL == (int64_t)(client.KeySymmetric = dataReceived.KeysSymmetric[0]),  "Service rejected communication.");
 	client.Stage									= ::dwh::SESSION_STAGE_CLIENT_IDLE;
-	//ree_if(client.KeySymmetric != 987654321ULL,  "Key test failed.");
 
 	//::SSessionClientAccepted								dataToSend											= {};
 	//gpk_necall(output.resize(sizeof(SSessionClientAccepted)), "Out of memory?");

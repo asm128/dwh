@@ -15,17 +15,12 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="dwh_client_exports.def">
-      <Filter>Source Files</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="dwh_client.h">
+    <ClInclude Include="application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="dwh_client.cpp">
+    <ClCompile Include="application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
