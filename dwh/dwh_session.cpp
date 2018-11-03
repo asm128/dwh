@@ -114,16 +114,25 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 			{
 				uint64_t											prime1Public										= 251; 
 				uint64_t											prime2Public										= 241; 
-				servertoclientn									= prime1Public * prime2Public;
 				servertoclientpublic							= 277;
 				servertoclientprivate							= 13213;
+				//uint64_t											prime1Public										= 48593; 
+				//uint64_t											prime2Public										= 48611; 
+				//servertoclientpublic							= 5839449; // 1158439 // 8341579
+				//servertoclientprivate							= 809;
+				servertoclientn									= prime1Public * prime2Public;
 			}
 			{
-				uint64_t											prime1Private										= 19; 
-				uint64_t											prime2Private										= 23; 
+				//uint64_t											prime1Private										= 19; 
+				//uint64_t											prime2Private										= 23; 
+				//clienttoserverpublic							= 337;
+				//clienttoserverprivate							= 349;
+				uint64_t											prime1Private										= 48593; 
+				uint64_t											prime2Private										= 48611; 
+				clienttoserverpublic							= 5839449; 
+				clienttoserverprivate							= 809;
+
 				clienttoservern									= prime1Private * prime2Private;
-				clienttoserverpublic							= 337;
-				clienttoserverprivate							= 349;
 			}
 
 			newClient.RSAKeysClient.Private					= servertoclientprivate;

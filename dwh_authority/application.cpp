@@ -71,7 +71,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		}
 	}
 
-	error_if(errored(::dwh::authorityUpdate(app.Server.UDPServer, app.Server.Authority)), "%s.", "Unknown error");
+	error_if(errored(::dwh::sessionAuthorityUpdate(app.Server)), "%s.", "Unknown error");
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
