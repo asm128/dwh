@@ -21,6 +21,9 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 static		void													sessionClientConnect		(void * pclient)														{
 	::dwh::SUDPSessionClient												& client					= *(::dwh::SUDPSessionClient *)pclient;
+	::gpk::tcpipAddress(32765, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressServer	);
+	::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressAuthority);
+	client.Client.IdServer												= 0;
 	error_if(errored(::dwh::sessionClientConnect(client)), "Failed to connect to server. %s", "");
 }
 
@@ -45,9 +48,6 @@ static		void													sessionClientConnect		(void * pclient)														{
 	::gpk::controlSetParent(gui, app.IdExit, -1);
 	::gpk::tcpipInitialize();
 
-	app.Client.UDPClient.AddressConnect									= {};
-	::gpk::tcpipAddress(32765, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, app.Client.AddressServer	);
-	::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, app.Client.AddressAuthority);
 	_beginthread(::sessionClientConnect, 0, &app.Client);
 	return 0; 
 }

@@ -46,7 +46,7 @@ struct SSessionServerAccept	{
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					KeySize																= 0;
 						::dwh::SKeyPair				KeysClient			[511]											= {};
-						char						Padding				[23];
+						char						Padding				[24];
 };
 
 static constexpr const size_t z = sizeof(::dwh::SKeyPair);
@@ -62,7 +62,6 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 // Client sends a request to the authority server and software identifier.																
 					::gpk::error_t				dwh::authorityClientIdentifyRequest					(::dwh::SSessionClient		& client	, ::gpk::array_pod<byte_t> & output)												{ ;   client			, output; 
 	client.Stage									= ::dwh::SESSION_STAGE_CLIENT_IDENTIFY;
-	client.IdServer									= 0;
 	client.IdClient									= (uint64_t)-1LL;
 	client.RSAKeys									= {};
 
@@ -129,8 +128,8 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 				//clienttoserverprivate							= 349;
 				uint64_t											prime1Private										= 48593; 
 				uint64_t											prime2Private										= 48611; 
-				clienttoserverpublic							= 5839449; 
-				clienttoserverprivate							= 809;
+				clienttoserverpublic							= 5839449;  // 
+				clienttoserverprivate							= 809;	    // 
 
 				clienttoservern									= prime1Private * prime2Private;
 			}
@@ -234,7 +233,7 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 	::SAuthorityServiceConfirmClientRequest				dataToSend											= {};
 	dataToSend.Command.Command						= ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST;
 	dataToSend.IdClient[0]							= dataReceived.IdClient[0];
-	dataToSend.IdServer								= 0;
+	dataToSend.IdServer								= service.IdServer;
 	gpk_necall(output.resize(sizeof(SAuthorityServiceConfirmClientRequest)), "Out of memory?");
 	memcpy(output.begin(), &dataToSend, sizeof(SAuthorityServiceConfirmClientRequest));
 	return validClient; 

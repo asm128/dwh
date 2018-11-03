@@ -34,6 +34,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	controlConstraints.AttachSizeToText.y								= app.IdExit;
 	controlConstraints.AttachSizeToText.x								= app.IdExit;
 	::gpk::controlSetParent(gui, app.IdExit, -1);
+
 	::gpk::tcpipInitialize();
 	::gpk::serverStart(app.Server.UDPServer, 32765);
 	return 0; 

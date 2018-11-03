@@ -1,16 +1,19 @@
 #include "dwh_session.h"
 #include "gpk_sync.h"
 #include "gpk_timer.h"
+#include "gpk_aes.h"
 
 int												main									()					{
 	::dwh::SSessionAuthority							authority								= {};
 	::dwh::SSessionServer								service									= {};
+	service.IdServer								= 0;
 	::gpk::array_pod <byte_t>							output, input							= {}; 
 
 	::gpk::error_t										result									= 0;
 	::gpk::sleep(10);
 	for(uint32_t i=0; i < 3; ++i) {
 		::dwh::SSessionClient								client									= {};
+		client.IdServer									= 0;
 		{
 			::gpk::STimer															timer;
 		// ----------- Client reports to authority and receives keys and session information - BEGIN
@@ -60,6 +63,11 @@ int												main									()					{
 			timer.Frame();
 			always_printf("Message decrypted by client in %g seconds: %s.", timer.LastTimeSeconds, testClientDecrypt.begin());
 		}
+		::gpk::array_pod<byte_t>	aesEncrypted;
+		::gpk::array_pod<byte_t>	aesDecrypted;
+		::gpk::aesEncode("Message", {(ubyte_t*)&client.KeySymmetric[1], 32}, ::gpk::AES_LEVEL_256, aesEncrypted);
+		::gpk::aesDecode(aesEncrypted, {(ubyte_t*)&client.KeySymmetric[1], 32}, ::gpk::AES_LEVEL_256, aesDecrypted);
+		always_printf("AES decrypted: %s", aesDecrypted.begin());
 	}
 	return 0;
 }
