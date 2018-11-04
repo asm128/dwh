@@ -170,7 +170,7 @@
 				if(0 == pmsg || 0 == pmsg->Payload.size())
 					continue;
 				::gpk::SUDPConnectionMessage											& msg						= *pmsg;
-				info_printf("Received: %.1024s.", msg.Payload.begin());
+				//info_printf("Received: %.1024s.", msg.Payload.begin());
 				response.clear();
 				::dwh::SSessionCommand													command						= *(::dwh::SSessionCommand*)&msg.Payload[0];
 				switch(command.Command) {																			  

@@ -4,49 +4,54 @@
 #include "gpk_noise.h"
 #include "gpk_encoding.h"
 
-static constexpr	const uint32_t				SIZE_MAX_CERTIFICATE												= 1024;
-static constexpr	const uint32_t				SIZE_MAX_KEY														= 1024;
-static constexpr	const uint32_t				SIZE_MAX_CLIENT_ID													= 1024;
+static constexpr	const uint32_t				SIZE_MAX_CERTIFICATE												= 256; // 128 * sizeof(uint64_t) = 1KiB
+static constexpr	const uint32_t				SIZE_MAX_KEY														= 128; // 128 * sizeof(uint64_t) = 1KiB
+static constexpr	const uint32_t				SIZE_MAX_CLIENT_ID													= 128; // 128 * sizeof(uint64_t) = 1KiB
 	
 #pragma pack(push, 1)	
 	
 struct SAuthorityClientIdentifyRequest			{	
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					IdServer															= (uint64_t)-1LL;
-						uint64_t					Certificate			[SIZE_MAX_CERTIFICATE - 1 + SIZE_MAX_KEY]		= {};
+						uint64_t					Certificate			[SIZE_MAX_CERTIFICATE - 2]						= {};
+						char						Padding				[7];
 };	
 	
 struct SAuthorityServerIdentifyResponse			{	
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						::dwh::SKeyPair				Keys																= {};
-						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 4 + SIZE_MAX_KEY]			= {};
+						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]							= {};
+						char						Padding				[991];
 };	
 	
 struct SSessionClientStart						{	
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]							= {};
 						uint64_t					KeySize																= 0;
-						uint64_t					KeysSymmetric		[SIZE_MAX_KEY - 1]								= {};
+						uint64_t					KeysSymmetric		[SIZE_MAX_KEY - 2]								= {};
+						char						Padding				[7];
 };	
 	
 struct SAuthorityServiceConfirmClientRequest	{	
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					IdServer															= {};
-						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 1 + 1024]					= {};
+						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]							= {};
+						char						Padding				[1015];
 };	
 	
 struct SAuthorityServerConfirmClientResponse	{	
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
+						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID]							= {};
 						::dwh::SKeyPair				KeysServer															= {};
 						::dwh::SKeyPair				KeysClient															= {};
-						uint64_t					IdClient			[SIZE_MAX_CLIENT_ID - 8 + 1024]					= {};
+						char						Padding				[959];
 };	
-	
+
 struct SSessionServerAccept	{	
 						::dwh::SSessionCommand		Command																= {::dwh::SESSION_STAGE_CLIENT_CLOSED};
 						uint64_t					KeySize																= 0;
-						::dwh::SKeyPair				KeysClient			[511]											= {};
-						char						Padding				[24];
+						::dwh::SKeyPair				KeysClient			[63]											= {};
+						char						Padding				[23];
 };
 
 static constexpr const size_t z = sizeof(::dwh::SKeyPair);
@@ -292,7 +297,6 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 			for(uint32_t iKey = 0, countKeys = 5/*::gpk::size(currentClient.KeySymmetric)*/; iKey < countKeys; ++iKey)
 				info_printf("Key received: %llx.", currentClient.KeySymmetric[iKey]);
 			keySymmetric								= currentClient.KeySymmetric[0];
-			info_printf("Decrypted key received: %llx.", keySymmetric);
 			indexClient									= iClient;
 			break;
 		}

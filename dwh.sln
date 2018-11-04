@@ -38,6 +38,11 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dwh_test_session", "dwh_tes
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dwh_client", "dwh_client\dwh_client.vcxproj", "{DC42793C-252E-4566-809D-1A02415D2569}"
+	ProjectSection(ProjectDependencies) = postProject
+		{CBF2EB6D-0ABE-4D1C-B80C-0308AFC3CE5F} = {CBF2EB6D-0ABE-4D1C-B80C-0308AFC3CE5F}
+		{830AB681-B788-47D4-9767-BA4E0792F682} = {830AB681-B788-47D4-9767-BA4E0792F682}
+		{39953D8D-A830-46BD-917E-1A96C8BDADC6} = {39953D8D-A830-46BD-917E-1A96C8BDADC6}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
