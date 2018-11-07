@@ -85,9 +85,12 @@ namespace dwh
 
 						::gpk::error_t				sessionClientEncrypt						(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 						::gpk::error_t				sessionClientDecrypt						(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
-						::gpk::error_t				sessionServerEncrypt						(::dwh::SSessionServer		& client	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
-						::gpk::error_t				sessionServerDecrypt						(::dwh::SSessionServer		& client	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
-						::gpk::error_t				sessionHash									(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, uint64_t & output);
+						::gpk::error_t				sessionServerEncrypt						(::dwh::SSessionServer		& server	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+						::gpk::error_t				sessionServerDecrypt						(::dwh::SSessionServer		& server	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+						::gpk::error_t				sessionServerEncrypt						(::dwh::SSessionClientRecord & client, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+						::gpk::error_t				sessionServerDecrypt						(::dwh::SSessionClientRecord & client, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output);	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
+
+						::gpk::error_t				sessionHash									(const ::gpk::view_array<const byte_t> & input, uint64_t & output);
 
 	static constexpr	const uint64_t				NOISE_SEED									= ::gpk::NOISE_SEED;
 }

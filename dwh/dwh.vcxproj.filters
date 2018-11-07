@@ -30,6 +30,12 @@
     <ClCompile Include="dwh_session_udp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dwh_chat.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dwh_table.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dwh_command.h">
@@ -54,6 +60,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dwh_session_udp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dwh_chat.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dwh_table.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

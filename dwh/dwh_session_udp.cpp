@@ -173,16 +173,16 @@
 				//info_printf("Received: %.1024s.", msg.Payload.begin());
 				response.clear();
 				::dwh::SSessionCommand													command						= *(::dwh::SSessionCommand*)&msg.Payload[0];
-				switch(command.Command) {																			  
+				switch(command.Command) {
 				case ::dwh::SESSION_STAGE_CLIENT_REQUEST_SERVICE_START	: 
 					{
-						int32_t																indexClient					= -1; 
-						ce_if(errored(indexClient = ::dwh::authorityServiceConfirmClientRequest(session.Server, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)command.Command); 
+						int32_t																indexClient					= -1;
+						ce_if(errored(indexClient = ::dwh::authorityServiceConfirmClientRequest(session.Server, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)command.Command);
 						session.SessionMap.push_back({(int32_t)iClient, indexClient});
 						::gpk::clientDisconnect(session.UDPClient);
 						::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, session.UDPClient.AddressConnect);
 						ree_if(errored(::gpk::clientConnect(session.UDPClient)), "Failed to connect to authority server at: %u.%u.%u.%u:%u.", GPK_IPV4_EXPAND(session.UDPClient.AddressConnect));
-						ce_if(errored(::gpk::connectionPushData(session.UDPClient, session.UDPClient.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+						ce_if(errored(::gpk::connectionPushData(session.UDPClient, session.UDPClient.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command);
 					}
 					break;
 				//case ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT		: 

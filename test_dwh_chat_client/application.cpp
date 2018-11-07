@@ -6,46 +6,56 @@
 //#define GPK_AVOID_LOCAL_APPLICATION_MODULE_MODEL_EXECUTABLE_RUNTIME
 #include "gpk_app_impl.h"
 
+#if defined (GPK_WINDOWS)
+#	include <process.h>	// for _beginthread
+#endif
+
 GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
-			::gpk::error_t											cleanup						(::gme::SApplication & app)						{ 
-	::gpk::clientDisconnect(app.Server.UDPClient);
-	::gpk::serverStop(app.Server.UDPServer);
+			::gpk::error_t											cleanup						(::gme::SApplication & app)												{ 
+	::gpk::clientDisconnect(app.Client.UDPClient);
 	::gpk::mainWindowDestroy(app.Framework.MainDisplay);
 	::gpk::tcpipShutdown();
 	return 0; 
 }
 
-			::gpk::error_t											setup						(::gme::SApplication & app)						{ 
+static		void													sessionClientConnect		(void * pclient)														{
+	::dwh::SUDPSessionClient												& client					= *(::dwh::SUDPSessionClient *)pclient;
+	::gpk::tcpipAddress(32765, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressServer	);
+	::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressAuthority);
+	client.Client.IdServer												= 0;
+	error_if(errored(::dwh::sessionClientConnect(client)), "Failed to connect to server. %s", "");
+}
+
+			::gpk::error_t											setup						(::gme::SApplication & app)												{ 
 	::gpk::SFramework														& framework					= app.Framework;
 	::gpk::SDisplay															& mainWindow				= framework.MainDisplay;
 	framework.Input.create();
-	error_if(errored(::gpk::mainWindowCreate(mainWindow, framework.RuntimeValues.PlatformDetail, framework.Input)), "Failed to create main window why?????!?!?!?!?");
+	error_if(errored(::gpk::mainWindowCreate(mainWindow, framework.RuntimeValues.PlatformDetail, framework.Input)), "Failed to create main window!!! Why?????!?!?!?!?");
 	::gpk::SGUI																& gui						= framework.GUI;
-	{ // Create exit button.
-		app.IdExit															= ::gpk::controlCreate(gui);
-		::gpk::SControl															& controlExit				= gui.Controls.Controls[app.IdExit];
-		controlExit.Area													= {{0, 0}, {64, 20}};
-		controlExit.Border													= {1, 1, 1, 1};
-		controlExit.Margin													= {1, 1, 1, 1};
-		controlExit.Align													= ::gpk::ALIGN_BOTTOM_RIGHT;
-		::gpk::SControlText														& controlText				= gui.Controls.Text[app.IdExit];
-		controlText.Text													= "Exit";
-		controlText.Align													= ::gpk::ALIGN_CENTER;
-		::gpk::SControlConstraints												& controlConstraints		= gui.Controls.Constraints[app.IdExit];
-		controlConstraints.AttachSizeToText.y								= app.IdExit;
-		controlConstraints.AttachSizeToText.x								= app.IdExit;
-		::gpk::controlSetParent(gui, app.IdExit, -1);
-	}
-
+	app.IdExit															= ::gpk::controlCreate(gui);
+	::gpk::SControl															& controlExit				= gui.Controls.Controls[app.IdExit];
+	controlExit.Area													= {{0, 0}, {64, 20}};
+	controlExit.Border													= {1, 1, 1, 1};
+	controlExit.Margin													= {1, 1, 1, 1};
+	controlExit.Align													= ::gpk::ALIGN_BOTTOM_RIGHT;
+	::gpk::SControlText														& controlText				= gui.Controls.Text[app.IdExit];
+	controlText.Text													= "Exit";
+	controlText.Align													= ::gpk::ALIGN_CENTER;
+	::gpk::SControlConstraints												& controlConstraints		= gui.Controls.Constraints[app.IdExit];
+	controlConstraints.AttachSizeToText.y								= app.IdExit;
+	controlConstraints.AttachSizeToText.x								= app.IdExit;
+	::gpk::controlSetParent(gui, app.IdExit, -1);
 	::gpk::tcpipInitialize();
-	::gpk::serverStart(app.Server.UDPServer, 32765);
+
+	_beginthread(::sessionClientConnect, 0, &app.Client);
 	return 0; 
 }
 
+
 			::gpk::error_t											update						(::gme::SApplication & app, bool exitSignal)	{ 
 	::gpk::STimer															timer;
-	retval_info_if(::gpk::APPLICATION_STATE_EXIT, exitSignal, "Exit requested by runtime.");
+	retval_info_if(::gpk::APPLICATION_STATE_EXIT, exitSignal, "%s", "Exit requested by runtime.");
 	{
 		::gpk::mutex_guard														lock						(app.LockRender);
 		app.Framework.MainDisplayOffscreen									= app.Offscreen;
@@ -74,8 +84,13 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		}
 	}
 
-	::dwh::sessionServerUpdate(app.Server);
-
+	//error_if(errored(::dwh::authorityUpdate(app.Server.UDPServer, app.Server.Authority)), "%s.", "Unknown error");
+	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
+		error_if(errored(::gpk::clientUpdate(app.Client.UDPClient)), "%s", "Unknown error.");
+		if(app.Client.Client.Stage == ::dwh::SESSION_STAGE_CLIENT_IDLE) {
+			// Do work
+		}
+	}
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 

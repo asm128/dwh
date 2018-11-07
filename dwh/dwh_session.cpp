@@ -285,19 +285,19 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 	::dwh::SKeyPair										keysClient											= {(uint64_t)-1LL, (uint64_t)-1LL, (uint64_t)-1LL, (uint64_t)-1LL};
 	for(uint32_t iClient = 0, countClients = service.Clients.size(); iClient < countClients; ++iClient)
 		if(service.Clients[iClient].IdClient == dataReceived.IdClient[0]) {
-			SSessionClientRecord							& currentClient										= service.Clients[iClient];
-			//keySymmetric								= ::gpk::noise1DBase(::gpk::timeCurrentInUs() + ::gpk::noise1DBase(::gpk::timeCurrentInUs()), ::gpk::timeCurrentInUs() * 32749);
-			currentClient.Stage							= ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT;
-			currentClient.RSAKeysServer					= dataReceived.KeysServer;
-			currentClient.RSAKeysClient					= keysClient											= dataReceived.KeysClient;
-			::gpk::array_pod<byte_t>						decrypted;
+			SSessionClientRecord								& currentClient										= service.Clients[iClient];
+			//keySymmetric									= ::gpk::noise1DBase(::gpk::timeCurrentInUs() + ::gpk::noise1DBase(::gpk::timeCurrentInUs()), ::gpk::timeCurrentInUs() * 32749);
+			currentClient.Stage								= ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT;
+			currentClient.RSAKeysServer						= dataReceived.KeysServer;
+			currentClient.RSAKeysClient						= keysClient											= dataReceived.KeysClient;
+			::gpk::array_pod<byte_t>							decrypted;
 			::dwh::sessionServerDecrypt(service, currentClient.IdClient, {(const byte_t*)currentClient.KeySymmetric, (uint32_t)currentClient.KeySize}, decrypted);
 			info_printf("Encrypted key size received: %llu.", currentClient.KeySize);
 			memcpy_s(currentClient.KeySymmetric, ::gpk::size(currentClient.KeySymmetric) * sizeof(currentClient.KeySymmetric[0]), decrypted.begin(), decrypted.size());
 			for(uint32_t iKey = 0, countKeys = 5/*::gpk::size(currentClient.KeySymmetric)*/; iKey < countKeys; ++iKey)
 				info_printf("Key received: %llx.", currentClient.KeySymmetric[iKey]);
-			keySymmetric								= currentClient.KeySymmetric[0];
-			indexClient									= iClient;
+			keySymmetric									= currentClient.KeySymmetric[0];
+			indexClient										= iClient;
 			break;
 		}
 
@@ -344,30 +344,28 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 	return 0; 
 }	
 
-					::gpk::error_t				hash						(const ::gpk::view_array<const byte_t> & input, uint64_t & output) { 
+static				::gpk::error_t				hash						(const ::gpk::view_array<const byte_t> & input, uint64_t & output) { 
+	static constexpr	const uint64_t					hash_seed					= 131071; // don't modify this one unless you know what you're doing.
 	output											= 0;
 	for(uint32_t i = 0; i < input.size() - 1; ++i) {
-		const uint64_t									hashedChar					= ::gpk::noise1DBase((i * input[i] + ::gpk::noise1DBase(input[i + 1]), ::dwh::NOISE_SEED));
-		output										+= hashedChar;
+		const uint64_t										hashedChar					= ::gpk::noise1DBase((i * input[i] + ::gpk::noise1DBase(input[i + 1]), hash_seed));
+		output											+= hashedChar;
 	}
 	return input.size();
 }
 
-					::gpk::error_t				dwh::sessionHash			(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, uint64_t & output) { 
-	client;
-	return hash(input, output);							
-}
+					::gpk::error_t				dwh::sessionHash			(const ::gpk::view_array<const byte_t> & input, uint64_t & output) { return hash(input, output); }
 
 #pragma pack(push, 1)
 struct SSessionPayloadHeader {
-	::dwh::SESSION_STAGE			Command		;
-	uint64_t						Size		;
-	uint64_t						IdClient	;
-	uint64_t						Hash		;
+						::dwh::SESSION_STAGE		Command		;
+						uint64_t					Size		;
+						uint64_t					IdClient	;
+						uint64_t					Hash		;
 };
 
 struct SSessionPayloadFooter {
-	uint64_t						Hash;
+						uint64_t					Hash;
 };
 #pragma pack(pop)
 
@@ -397,26 +395,22 @@ static				::gpk::error_t				getClientIndex										(::gpk::array_pod<::dwh::SSe
 	return -1;
 }
 
-					::gpk::error_t				dwh::sessionServerDecrypt							(::dwh::SSessionServer		& server	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { server, input, output; 
+					::gpk::error_t				dwh::sessionServerDecrypt							(::dwh::SSessionClientRecord & client, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { 
 	::SSessionPayloadHeader								& header											= *(::SSessionPayloadHeader*)input.begin(); 
 	::SSessionPayloadFooter								& footer											= *(::SSessionPayloadFooter*)&input[input.size() - sizeof(::SSessionPayloadFooter)]; 
 	uint64_t											hashCheck											= 0;
 	::hash({input.begin(), input.size() - (uint32_t)sizeof(SSessionPayloadFooter)}, hashCheck);
 	ree_if(footer.Hash != hashCheck, "Failed to check hash. footer.Hash: %llx. hashCheck: %llx.", footer.Hash, hashCheck);
 	::gpk::array_pod<byte_t>							decrypted											= {};
-	const int32_t										indexClient											= ::getClientIndex(server.Clients, idClient);
-	gpk_necall(::gpk::gpcDecodeWithHash({(uint64_t*)&input[sizeof(::SSessionPayloadHeader)], (uint32_t)header.Size / sizeof(uint64_t)}, server.Clients[indexClient].RSAKeysServer.PrivateN, server.Clients[indexClient].RSAKeysServer.Private, true, decrypted), "Failed to decrypt session message.");
+	gpk_necall(::gpk::gpcDecodeWithHash({(uint64_t*)&input[sizeof(::SSessionPayloadHeader)], (uint32_t)header.Size / sizeof(uint64_t)}, client.RSAKeysServer.PrivateN, client.RSAKeysServer.Private, true, decrypted), "Failed to decrypt session message.");
 	uint32_t											outputOffset										= output.size();
 	gpk_necall(output.resize(decrypted.size() + outputOffset), "%s", "Out of memory?");
 	memcpy(&output[outputOffset], decrypted.begin(), decrypted.size());
 	return 0; 
 }	// 
 
-					::gpk::error_t				dwh::sessionServerEncrypt							(::dwh::SSessionServer		& server	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { 
+					::gpk::error_t				dwh::sessionServerEncrypt							(::dwh::SSessionClientRecord & client, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { 
 	::gpk::array_pod<uint64_t>							encrypted;
-	const int32_t										indexClient											= ::getClientIndex(server.Clients, idClient);
-	ree_if(errored(indexClient), "Invalid client id: %llu.", idClient);
-	::dwh::SSessionClientRecord							& client											= server.Clients[indexClient];
 	gpk_necall(::gpk::gpcEncodeWithHash(input, client.RSAKeysServer.PublicN, client.RSAKeysServer.Public, 0, true, encrypted), "%s", "Failed to encrypt message.");
 
 	SSessionPayloadHeader								header												= {}; 
@@ -434,7 +428,22 @@ static				::gpk::error_t				getClientIndex										(::gpk::array_pod<::dwh::SSe
 	return 0; 
 }	// 
 
-					::gpk::error_t				dwh::sessionClientDecrypt							(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { client, input, output; 
+
+					::gpk::error_t				dwh::sessionServerDecrypt							(::dwh::SSessionServer		& server	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { 
+	const int32_t										indexClient											= ::getClientIndex(server.Clients, idClient);
+	ree_if(errored(indexClient), "Invalid client id: %llu.", idClient);
+	::dwh::SSessionClientRecord							client												= server.Clients[indexClient];
+	return ::dwh::sessionServerDecrypt(client, input, output);
+}	// 
+
+					::gpk::error_t				dwh::sessionServerEncrypt							(::dwh::SSessionServer		& server	, uint64_t idClient, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { 
+	const int32_t										indexClient											= ::getClientIndex(server.Clients, idClient);
+	ree_if(errored(indexClient), "Invalid client id: %llu.", idClient);
+	::dwh::SSessionClientRecord							& client											= server.Clients[indexClient];
+	return ::dwh::sessionServerEncrypt(client, input, output);
+}	// 
+
+					::gpk::error_t				dwh::sessionClientDecrypt							(::dwh::SSessionClient		& client	, const ::gpk::view_array<const byte_t> & input, ::gpk::array_pod<byte_t> & output) { 
 	::SSessionPayloadHeader								& header											= *(::SSessionPayloadHeader*)input.begin(); 
 	::SSessionPayloadFooter								& footer											= *(::SSessionPayloadFooter*)&input[input.size() - sizeof(::SSessionPayloadFooter)]; 
 	uint64_t											hashCheck											= 0;

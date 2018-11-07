@@ -10,7 +10,6 @@ int												main									()					{
 	::gpk::array_pod <byte_t>							output, input							= {}; 
 
 	::gpk::error_t										result									= 0;
-	::gpk::sleep(10);
 	double												millisec								= 0;
 	for(uint32_t i=0; i < 3; ++i) {
 		::dwh::SSessionClient								client									= {};
@@ -31,7 +30,11 @@ int												main									()					{
 			timer.Frame(); gpk_necall(result = ::dwh::sessionServerAccept						(service	, output, input), "%s", "Unknown error.");	timer.Frame(); millisec = timer.LastTimeMicroseconds / 1000.0; always_printf("Server    -> sessionServerAccept                   result: %x. Time: %g milliseconds.", result, millisec);	// 5. Service server sends a response to the client containing the symmetric keys for the rest of the communication.						
 			timer.Frame(); gpk_necall(result = ::dwh::sessionClientAccepted						(client		, input, output), "%s", "Unknown error.");	timer.Frame(); millisec = timer.LastTimeMicroseconds / 1000.0; always_printf("Client    -> sessionClientAccepted                 result: %x. Time: %g milliseconds.", result, millisec);	// 6. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 		// ----------- Client connects to the service - END
-			always_printf("Client connected. Symmetric key: %llx.", client.KeySymmetric);
+			always_printf("Client connected. Symmetric key (Ardell): %llx.", client.KeySymmetric[0]);
+			always_printf("Client connected. Symmetric key (AES)[0]: %llx.", client.KeySymmetric[1]);
+			always_printf("Client connected. Symmetric key (AES)[1]: %llx.", client.KeySymmetric[2]);
+			always_printf("Client connected. Symmetric key (AES)[2]: %llx.", client.KeySymmetric[3]);
+			always_printf("Client connected. Symmetric key (AES)[3]: %llx.", client.KeySymmetric[4]);
 		}
 	// ----------- 
 		{
@@ -40,14 +43,14 @@ int												main									()					{
 			::gpk::STimer									timer;
 			gpk_necall(::dwh::sessionClientEncrypt(client, input, output), "%s", "Unknown error.");	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 			timer.Frame();
-			millisec = timer.LastTimeMicroseconds / 1000.0; 
+			millisec									= timer.LastTimeMicroseconds / 1000.0; 
 			always_printf("Message encrypted by client in %g milliseconds: %s.", millisec, input.begin());
 
 			::gpk::array_pod <byte_t>						testServerDecrypt						= {}; 
 			gpk_necall(::dwh::sessionServerDecrypt(service, client.IdClient, output, testServerDecrypt), "%s", "Unknown error.");	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 			error_if(testServerDecrypt.size() != input.size(), "%s", "Client failed to decrypt.");
 			timer.Frame();
-			millisec = timer.LastTimeMicroseconds / 1000.0; 
+			millisec									= timer.LastTimeMicroseconds / 1000.0; 
 			error_if(memcmp(testServerDecrypt.begin(), input.begin(), testServerDecrypt.size()), "%s", "Server failed to decrypt.");
 			always_printf("Message decrypted by server in %g milliseconds: %s.", millisec, testServerDecrypt.begin());
 		}
@@ -57,14 +60,14 @@ int												main									()					{
 			::gpk::STimer									timer;
 			gpk_necall(::dwh::sessionServerEncrypt(service, client.IdClient, input, output), "%s", "Unknown error.");	// 7. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 			timer.Frame();
-			millisec = timer.LastTimeMicroseconds / 1000.0; 
+			millisec									= timer.LastTimeMicroseconds / 1000.0; 
 			always_printf("Message encrypted by server in %g milliseconds: %s.", millisec, input.begin());
 
 			::gpk::array_pod <byte_t>						testClientDecrypt						= {}; 
 			gpk_necall(::dwh::sessionClientDecrypt(client, output, testClientDecrypt), "%s", "Unknown error.");	// 8. Client processes service response in order to determine if the connection was accepted as legitimate and loads the symmetric keys.	
 			error_if(testClientDecrypt.size() != input.size(), "%s", "Client failed to decrypt.");
 			timer.Frame();
-			millisec = timer.LastTimeMicroseconds / 1000.0; 
+			millisec									= timer.LastTimeMicroseconds / 1000.0; 
 			error_if(memcmp(testClientDecrypt.begin(), input.begin(), testClientDecrypt.size()), "%s", "Client failed to decrypt.");
 			always_printf("Message decrypted by client in %g milliseconds: %s.", millisec, testClientDecrypt.begin());
 		}
