@@ -118,8 +118,8 @@
 				info_printf("%s", "Received accept response.");
 				dataReceived														= message->Payload;
 				break;
-			default:
-				error_printf("Invalid session command received by client: %u.", (uint32_t)command.Command);
+			//default:
+			//	error_printf("Invalid session command received by client: %u.", (uint32_t)command.Command);
 			}
 		}
 		if(0 != dataReceived.size())
