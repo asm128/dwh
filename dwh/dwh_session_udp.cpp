@@ -93,6 +93,7 @@
 			break;
 	}
 	::gpk::clientDisconnect(client.UDPClient);
+	ree_if(0 == dataReceived.size(), "%s", "Failed to autorize.");
 	timer.Frame();
 	totalTime																+= timer.LastTimeMicroseconds;
 	double																		inSeconds					= totalTime / 1000.0;
@@ -188,9 +189,9 @@
 				//case ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT		: 
 				//	ce_if(errored(::dwh::sessionServerAccept(app.SessionServer, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); 
 				//	ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command); break;
-				default: 
-					error_printf("Unrecognized session command: %u.", command.Command);
-					break;
+				//default: 
+				//	error_printf("Unrecognized session command: %u.", command.Command);
+				//	break;
 				}
 			}
 		}

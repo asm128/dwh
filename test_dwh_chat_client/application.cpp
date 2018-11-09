@@ -2,6 +2,7 @@
 #include "gpk_bitmap_file.h"
 #include "gpk_tcpip.h"
 #include "gpk_connection.h"
+#include "gpk_grid_scale.h"
 
 //#define GPK_AVOID_LOCAL_APPLICATION_MODULE_MODEL_EXECUTABLE_RUNTIME
 #include "gpk_app_impl.h"
@@ -88,9 +89,32 @@ static		void													sessionClientConnect		(void * pclient)														{
 	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
 		error_if(errored(::gpk::clientUpdate(app.Client.UDPClient)), "%s", "Unknown error.");
 		if(app.Client.Client.Stage == ::dwh::SESSION_STAGE_CLIENT_IDLE) {
-			// Do work
+			::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>	queue;
+			{
+				// Do work
+				::gpk::mutex_guard												lockQeueue					(app.Client.UDPClient.Queue.MutexReceive);
+				queue														= app.Client.UDPClient.Queue.Received;
+				app.Client.UDPClient.Queue.Received.clear();
+			}
+			for(uint32_t iRecv = 0; iRecv < queue.size(); ++iRecv) {
+				if(7 != queue[iRecv]->Payload[0])
+					continue;
+				uint32_t														line						= *(uint16_t*)&queue[iRecv]->Payload[1];
+				info_printf("Received line: %u.", line);
+				::gpk::SCoord2<uint16_t>										remoteScreenSize			= *(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[3];
+				{
+					::gpk::mutex_guard														lock					(app.LockRender);
+					app.OffscreenRemote->resize(remoteScreenSize.Cast<uint32_t>());
+				}
+				memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[7], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
+			}
+
 		}
 	}
+	char buffer[256] = {};
+	sprintf_s(buffer, "Last frame seconds: %g.", app.Framework.FrameInfo.Seconds.LastFrame);
+	SetWindowText(app.Framework.MainDisplay.PlatformDetail.WindowHandle, buffer);
+
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
@@ -102,6 +126,11 @@ static		void													sessionClientConnect		(void * pclient)														{
 	::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		target;
 	target.create();
 	target->resize(app.Framework.MainDisplay.Size, {0xFF, 0x40, 0x7F, 0xFF}, (uint32_t)-1);
+	{
+		::gpk::mutex_guard														lock					(app.LockRender);
+		if(app.OffscreenRemote)
+			::gpk::grid_scale(target->Color.View, app.OffscreenRemote->Color.View);
+	}
 	{
 		::gpk::mutex_guard														lock					(app.LockGUI);
 		::gpk::controlDrawHierarchy(app.Framework.GUI, 0, target->Color.View);

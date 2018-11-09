@@ -122,51 +122,77 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 
 	::gpk::array_pod<uint16_t>	linesToSend;
+	RECT																	rect					= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
 	{
 		::gpk::mutex_guard														lock					(app.LockRender);
-		RECT																	rect					= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
 		//GetWindowRect(0, &rect);
 		if(app.DesktopImage.metrics().x != (uint32_t)rect.right || app.DesktopImage.metrics().y != (uint32_t)rect.bottom) {
 			app.DesktopImage		.resize({(uint32_t)rect.right, (uint32_t)rect.bottom});
 			app.DesktopImagePrevious.resize({(uint32_t)rect.right, (uint32_t)rect.bottom});
 		}
-		::gpk::array_pod<::gpk::SColorBGRA>										& pixels				= app.DesktopImage.Texels;
-		::gpk::view_grid<::gpk::SColorBGRA>										view					= {pixels.begin(), (uint32_t)rect.right, (uint32_t)rect.bottom};
-
-		HDC																		dc						= GetDC(0);
-		::getBuffer(app.OffscreenDetail, dc, rect.right, rect.bottom, view);
-		ReleaseDC(0, dc);
 	}
+
+	::gpk::array_pod<::gpk::SColorBGRA>										& pixels				= app.DesktopImage.Texels;
+	::gpk::view_grid<::gpk::SColorBGRA>										view					= {pixels.begin(), (uint32_t)rect.right, (uint32_t)rect.bottom};
+	HDC																		dc						= GetDC(0);
+	::getBuffer(app.OffscreenDetail, dc, rect.right, rect.bottom, view);
+	ReleaseDC(0, dc);
+
+	static int even = 0;
+	++even;
+	even %= 2;
+
 	for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) {
 		if(memcmp(app.DesktopImage.View[iLine].begin(), app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA))) 
-			linesToSend.push_back(iLine);
+			//if(even && 0 == (iLine % 2))
+				linesToSend.push_back(iLine);
+			//else if((iLine & 2) && !even)
+			//	linesToSend.push_back(iLine);
 	}
+
+	static uint16_t															iRedundancy						= 0;
+	iRedundancy															+= 1;
+	iRedundancy															%= app.DesktopImage.metrics().y;
+	linesToSend.push_back(iRedundancy);
+
+	::gpk::SImage<::gpk::SColorBGRA>										& finalImage	= app.DesktopImage;
+	//finalImage.resize(app.DesktopImage.metrics() / 2);
+	//::gpk::grid_scale(finalImage.View, app.DesktopImage.View);
 
 	//info_printf("%s", "Lines to send: ");
 	::gpk::array_pod<byte_t>												lineCommand;
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
-		lineCommand.resize(app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 1);
+		lineCommand.resize(finalImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 1);
 		lineCommand[0]														= 7;
 		*(uint16_t*)&lineCommand[1]											= linesToSend[iLine];
 		{
 			::gpk::mutex_guard														lock					(app.LockRender);
-			*(::gpk::SCoord2<uint16_t>*)&lineCommand[3]							= app.DesktopImage.metrics().Cast<uint16_t>();
-			memcpy(&lineCommand[7], app.DesktopImage.View[linesToSend[iLine]].begin(), app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA));
+			*(::gpk::SCoord2<uint16_t>*)&lineCommand[3]							= finalImage.metrics().Cast<uint16_t>();
+			memcpy(&lineCommand[7], finalImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(::gpk::SColorBGRA));
 		}
-
 		{
 			::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
 			for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
-				if(app.Server.Server.Clients[iClient].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
+				int32_t clientSession = -1;
+				for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
+					if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
+						clientSession = (int32_t)iSession;
+						break;
+					}
+				}
+				if(-1 == clientSession)
+					continue;
+					
+				if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
 					continue;
 				if(0 == app.Server.UDPServer.Clients[iClient])
 					continue;
 				::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
 				::gpk::connectionPushData(connection, connection.Queue, lineCommand);
-				::gpk::sleep(0);
 			}
 		}
+		//::gpk::sleep(0);
 	}
 
 	{
@@ -174,10 +200,15 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		memcpy(app.DesktopImagePrevious.Texels.begin(), app.DesktopImage.Texels.begin(), app.DesktopImage.View.metrics().x * app.DesktopImage.View.metrics().y * sizeof(::gpk::SColorBGRA));
 	}
 
-
 	::dwh::sessionServerUpdate(app.Server);
 
-	::gpk::sleep(1);
+	::gpk::sleep(5);
+
+	char buffer[256] = {};
+	sprintf_s(buffer, "Last frame seconds: %g.", app.Framework.FrameInfo.Seconds.LastFrame);
+	SetWindowText(app.Framework.MainDisplay.PlatformDetail.WindowHandle, buffer);
+
+
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
@@ -186,19 +217,19 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			::gpk::error_t											draw					(::gme::SApplication & app)						{ 
 	::gpk::STimer															timer;
 	app;
-	::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		target;
-	target.create();
-	target->resize(app.Framework.MainDisplay.Size, {0xFF, 0x40, 0x7F, 0xFF}, (uint32_t)-1);
-	{
-		::gpk::mutex_guard														lock					(app.LockGUI);
-		::gpk::controlDrawHierarchy(app.Framework.GUI, 0, target->Color.View);
-	}
-	{
-		::gpk::mutex_guard														lock					(app.LockRender);
-		::gpk::grid_scale(target->Color.View, app.DesktopImage.View);
-		app.Offscreen														= target;
-	}
-
+	//::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		target;
+	//target.create();
+	//target->resize(app.Framework.MainDisplay.Size, {0xFF, 0x40, 0x7F, 0xFF}, (uint32_t)-1);
+	//{
+	//	::gpk::mutex_guard														lock					(app.LockGUI);
+	//	::gpk::controlDrawHierarchy(app.Framework.GUI, 0, target->Color.View);
+	//}
+	//{
+	//	::gpk::mutex_guard														lock					(app.LockRender);
+	//	//::gpk::grid_scale(target->Color.View, app.DesktopImage.View);
+	//	app.Offscreen														= target;
+	//}
+	app.Offscreen														= {};
 	//timer.Frame();
 	//warning_printf("Draw time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
