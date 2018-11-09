@@ -123,20 +123,28 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	::gpk::array_pod<uint16_t>	linesToSend;
 	RECT																	rect					= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
+	//::gpk::SCoord2<uint32_t>												finalImageSize			= {320, 200};//{(uint32_t)rect.right / 2, (uint32_t)rect.bottom / 2};
+	::gpk::SCoord2<uint32_t>												finalImageSize			= {(uint32_t)rect.right / 2, (uint32_t)rect.bottom / 2};
+	//::gpk::SCoord2<uint32_t>												finalImageSize			= {640, 360};
 	{
 		::gpk::mutex_guard														lock					(app.LockRender);
 		//GetWindowRect(0, &rect);
-		if(app.DesktopImage.metrics().x != (uint32_t)rect.right || app.DesktopImage.metrics().y != (uint32_t)rect.bottom) {
-			app.DesktopImage		.resize({(uint32_t)rect.right, (uint32_t)rect.bottom});
-			app.DesktopImagePrevious.resize({(uint32_t)rect.right, (uint32_t)rect.bottom});
+		if(app.DesktopImage.metrics() != finalImageSize) {
+			app.DesktopImage		.resize(finalImageSize);
+			app.DesktopImagePrevious.resize(finalImageSize);
 		}
 	}
 
-	::gpk::array_pod<::gpk::SColorBGRA>										& pixels				= app.DesktopImage.Texels;
-	::gpk::view_grid<::gpk::SColorBGRA>										view					= {pixels.begin(), (uint32_t)rect.right, (uint32_t)rect.bottom};
+
+	::gpk::SImage<::gpk::SColorBGRA>										temp;
+	temp.resize((uint32_t)rect.right, (uint32_t)rect.bottom);
+	//::gpk::array_pod<::gpk::SColorBGRA>										& pixels				= app.DesktopImage.Texels;
+	::gpk::view_grid<::gpk::SColorBGRA>										& view					= temp.View;//{pixels.begin(), (uint32_t)rect.right, (uint32_t)rect.bottom};
 	HDC																		dc						= GetDC(0);
 	::getBuffer(app.OffscreenDetail, dc, rect.right, rect.bottom, view);
 	ReleaseDC(0, dc);
+
+	::gpk::grid_scale(app.DesktopImage.View, view);
 
 	static int even = 0;
 	++even;
@@ -144,16 +152,17 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) {
 		if(memcmp(app.DesktopImage.View[iLine].begin(), app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA))) 
+			memcpy(app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA));
 			//if(even && 0 == (iLine % 2))
 				linesToSend.push_back(iLine);
 			//else if((iLine & 2) && !even)
 			//	linesToSend.push_back(iLine);
 	}
 
-	static uint16_t															iRedundancy						= 0;
-	iRedundancy															+= 1;
-	iRedundancy															%= app.DesktopImage.metrics().y;
-	linesToSend.push_back(iRedundancy);
+	//static uint16_t															iRedundancy						= 0;
+	//iRedundancy															+= 1;
+	//iRedundancy															%= app.DesktopImage.metrics().y;
+	//linesToSend.push_back(iRedundancy);
 
 	::gpk::SImage<::gpk::SColorBGRA>										& finalImage	= app.DesktopImage;
 	//finalImage.resize(app.DesktopImage.metrics() / 2);
@@ -195,10 +204,10 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		//::gpk::sleep(0);
 	}
 
-	{
-		::gpk::mutex_guard														lock					(app.LockRender);
-		memcpy(app.DesktopImagePrevious.Texels.begin(), app.DesktopImage.Texels.begin(), app.DesktopImage.View.metrics().x * app.DesktopImage.View.metrics().y * sizeof(::gpk::SColorBGRA));
-	}
+	//{
+	//	::gpk::mutex_guard														lock					(app.LockRender);
+	//	memcpy(app.DesktopImagePrevious.Texels.begin(), app.DesktopImage.Texels.begin(), app.DesktopImage.View.metrics().x * app.DesktopImage.View.metrics().y * sizeof(::gpk::SColorBGRA));
+	//}
 
 	::dwh::sessionServerUpdate(app.Server);
 
