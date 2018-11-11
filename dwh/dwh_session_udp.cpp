@@ -157,7 +157,7 @@
 		//SESSION_STAGE_CLIENT_IDLE							// sessionClientAccepted				() // Client	-> IDLE			// Processed by client/service
 		for(uint32_t iClient = 0; iClient < session.UDPServer.Clients.size(); ++iClient) {
 			::gpk::ptr_nco<::gpk::SUDPConnection>									pclient						= session.UDPServer.Clients[iClient];
-			if(0 == pclient || pclient->Socket == INVALID_SOCKET || pclient->State == ::gpk::UDP_CONNECTION_STATE_DISCONNECTED)
+			if(0 == pclient || pclient->Socket == INVALID_SOCKET || pclient->State != ::gpk::UDP_CONNECTION_STATE_IDLE)
 				continue;
 			::gpk::SUDPConnection													& client					= *pclient;
 			::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>			received;
@@ -167,9 +167,15 @@
 				client.Queue.Received.clear();
 			}
 			for(uint32_t iMessage = 0; iMessage < received.size(); ++iMessage) {
-				::gpk::ptr_nco<::gpk::SUDPConnectionMessage>							pmsg						= received[iMessage];
+				::gpk::ptr_obj<::gpk::SUDPConnectionMessage>							pmsg						= received[iMessage];
 				if(0 == pmsg || 0 == pmsg->Payload.size())
 					continue;
+
+				if(pmsg->Payload[0] == 7) {
+					::gpk::mutex_guard														lockRecv					(client.Queue.MutexReceive);
+					client.Queue.Received.push_back(pmsg);
+					continue;
+				}
 				::gpk::SUDPConnectionMessage											& msg						= *pmsg;
 				//info_printf("Received: %.1024s.", msg.Payload.begin());
 				response.clear();
@@ -179,7 +185,19 @@
 					{
 						int32_t																indexClient					= -1;
 						ce_if(errored(indexClient = ::dwh::authorityServiceConfirmClientRequest(session.Server, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)command.Command);
-						session.SessionMap.push_back({(int32_t)iClient, indexClient});
+						bool bFound = false;
+						for(uint32_t iSession = 0; iSession < session.SessionMap.size(); ++iSession) {
+							if( session.SessionMap[iSession].IdConnection	== (int32_t)indexClient 
+							 && session.SessionMap[iSession].IdSession		== (int32_t)iSession
+							) {
+								bFound = true;
+								break;
+							}
+							else if(session.SessionMap[iSession].IdConnection	== (int32_t)indexClient	) { session.SessionMap[iSession].IdConnection	= -1; }
+							else if(session.SessionMap[iSession].IdSession		== (int32_t)iSession	) { session.SessionMap[iSession].IdSession		= -1; }
+						}
+						if(false == bFound)
+							session.SessionMap.push_back({(int32_t)iClient, indexClient});
 						::gpk::clientDisconnect(session.UDPClient);
 						::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, session.UDPClient.AddressConnect);
 						ree_if(errored(::gpk::clientConnect(session.UDPClient)), "Failed to connect to authority server at: %u.%u.%u.%u:%u.", GPK_IPV4_EXPAND(session.UDPClient.AddressConnect));

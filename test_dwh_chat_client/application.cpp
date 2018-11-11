@@ -86,8 +86,14 @@ static		void													sessionClientConnect		(void * pclient)														{
 	}
 
 	//error_if(errored(::dwh::authorityUpdate(app.Server.UDPServer, app.Server.Authority)), "%s.", "Unknown error");
-	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
+	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE)
 		error_if(errored(::gpk::clientUpdate(app.Client.UDPClient)), "%s", "Unknown error.");
+
+	static uint32_t redundancy = 0;
+	++redundancy;
+	bool forceSendInput = (0 == (redundancy % 3));
+
+	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
 		if(app.Client.Client.Stage == ::dwh::SESSION_STAGE_CLIENT_IDLE) {
 			::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>	queue;
 			{
@@ -100,7 +106,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 				if(7 != queue[iRecv]->Payload[0])
 					continue;
 				uint32_t														line						= *(uint16_t*)&queue[iRecv]->Payload[1];
-				info_printf("Received line: %u.", line);
+				//info_printf("Received line: %u.", line);
 				::gpk::SCoord2<uint16_t>										remoteScreenSize			= *(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[3];
 				{
 					::gpk::mutex_guard														lock					(app.LockRender);
@@ -108,7 +114,26 @@ static		void													sessionClientConnect		(void * pclient)														{
 				}
 				memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[7], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
 			}
+			::gpk::array_pod<byte_t>											packetInputs;
+			packetInputs.push_back(7); 
+			bool changed = false;
+			if(false == forceSendInput && 0 == memcmp(&app.Framework.Input->KeyboardCurrent, &app.Framework.Input->KeyboardPrevious, sizeof(::gpk::SInputKeyboard))) 
+				packetInputs.push_back(0);
+			else {
+				packetInputs.push_back(1);
+				packetInputs.append((const byte_t*)&app.Framework.Input->KeyboardCurrent, sizeof(::gpk::SInputKeyboard));
+				changed = true;
+			}
 
+			if(false == forceSendInput && 0 == memcmp(&app.Framework.Input->MouseCurrent, &app.Framework.Input->MousePrevious, sizeof(::gpk::SInputMouse))) 
+				packetInputs.push_back(0);
+			else {
+				packetInputs.push_back(1);
+				packetInputs.append((const byte_t*)&app.Framework.Input->MouseCurrent	, sizeof(::gpk::SInputMouse));
+				changed = true;
+			}
+			if(changed)
+				::gpk::connectionPushData(app.Client.UDPClient, app.Client.UDPClient.Queue, packetInputs);
 		}
 	}
 	char buffer[256] = {};

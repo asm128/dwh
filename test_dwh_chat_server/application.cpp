@@ -3,6 +3,7 @@
 #include "gpk_tcpip.h"
 #include "gpk_connection.h"
 #include "gpk_grid_scale.h"
+#include "gpk_chrono.h"
 
 //#define GPK_AVOID_LOCAL_APPLICATION_MODULE_MODEL_EXECUTABLE_RUNTIME
 #include "gpk_app_impl.h"
@@ -41,6 +42,9 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	::gpk::tcpipInitialize();
 	::gpk::serverStart(app.Server.UDPServer, 32765);
+
+
+	app.RemoteInput = {};
 	return 0; 
 }
 
@@ -102,13 +106,9 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::SGUI																& gui						= framework.GUI;
 	{
 		::gpk::mutex_guard														lock						(app.LockGUI);
-		::gpk::guiProcessInput(gui, *app.Framework.Input);
+		//::gpk::guiProcessInput(gui, *app.Framework.Input);
+		//::gpk::guiProcessInput(gui, app.RemoteInput);
 	}
-	if(app.Framework.Input->MouseCurrent.Deltas.z) {
-		gui.Zoom.ZoomLevel													+= app.Framework.Input->MouseCurrent.Deltas.z * (1.0 / (120 * 4));
-		::gpk::guiUpdateMetrics(gui, app.Offscreen->Color.metrics(), true);
-	}
- 
 	for(uint32_t iControl = 0, countControls = gui.Controls.Controls.size(); iControl < countControls; ++iControl) {
 		const ::gpk::SControlState												& controlState				= gui.Controls.States[iControl];
 		if(controlState.Unused || controlState.Disabled)
@@ -208,6 +208,141 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	//	::gpk::mutex_guard														lock					(app.LockRender);
 	//	memcpy(app.DesktopImagePrevious.Texels.begin(), app.DesktopImage.Texels.begin(), app.DesktopImage.View.metrics().x * app.DesktopImage.View.metrics().y * sizeof(::gpk::SColorBGRA));
 	//}
+	app.RemoteInput.KeyboardPrevious									= app.RemoteInput.KeyboardCurrent;
+	app.RemoteInput.MousePrevious										= app.RemoteInput.MouseCurrent;
+	{
+		::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
+		for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
+			if(0 == app.Server.UDPServer.Clients[iClient])
+				continue;
+			::gpk::SUDPConnection													& currentConn			= *app.Server.UDPServer.Clients[iClient];
+			if(::gpk::UDP_CONNECTION_STATE_IDLE != currentConn.State)
+				continue;
+			{
+				::gpk::mutex_guard														lockQueue				(currentConn.Queue.MutexReceive);
+				for(uint32_t iRecv = 0; iRecv < currentConn.Queue.Received.size(); ++iRecv) {
+					if(0 == currentConn.Queue.Received[iRecv])
+						continue;
+					::gpk::SUDPConnectionMessage											& curMessage			= *currentConn.Queue.Received[iRecv];
+					if(curMessage.Payload[0] != 7)
+						continue;
+					else {
+						//info_printf("Received message from control client: %u.", (uint32_t)iClient);
+						if(curMessage.Payload[1] == 1) {
+							//info_printf("Keyboard input received.");
+							app.RemoteInput.KeyboardCurrent = *(::gpk::SInputKeyboard*)&curMessage.Payload[2];
+						}
+						if(curMessage.Payload[1] == 1) {
+							if(curMessage.Payload[2 + sizeof(::gpk::SInputKeyboard)] == 1) {
+								app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[2 + sizeof(::gpk::SInputKeyboard) + 1];
+								//info_printf("Mouse input received. Mouse pos: {%u, %u}. Time: %llu.", app.RemoteInput.MouseCurrent.Position.x, app.RemoteInput.MouseCurrent.Position.y, ::gpk::timeCurrentInMs());
+							}
+						}
+						else {
+							if(curMessage.Payload[2] == 1) {
+								app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[3];
+								//info_printf("Mouse input received (no Keyboard update). Mouse pos: {%u, %u}. Time: %llu.", app.RemoteInput.MouseCurrent.Position.x, app.RemoteInput.MouseCurrent.Position.y, ::gpk::timeCurrentInMs());
+							}
+						}
+						currentConn.Queue.Received[iRecv] = {};
+					}
+				}
+			}
+
+		}
+	}
+	::gpk::SCoord2<int32_t> deltas = app.RemoteInput.MouseCurrent.Position - app.RemoteInput.MousePrevious.Position;
+	app.RemoteInput.MouseCurrent.Deltas = {deltas.x, deltas.y, app.RemoteInput.MouseCurrent.Deltas.z};
+	{
+		::gpk::mutex_guard														lock						(app.LockGUI);
+		//::gpk::guiProcessInput(gui, *app.Framework.Input);
+		::gpk::guiProcessInput(gui, app.RemoteInput);
+	}
+	if(app.RemoteInput.MouseCurrent.Deltas.z) {
+		//gui.Zoom.ZoomLevel													+= app.Framework.Input->MouseCurrent.Deltas.z * (1.0 / (120 * 4));
+		gui.Zoom.ZoomLevel													+= app.RemoteInput.MouseCurrent.Deltas.z * (1.0 / (120 * 4));
+		::gpk::guiUpdateMetrics(gui, app.Offscreen->Color.metrics(), true);
+	}
+ 
+	//SendInput();
+	INPUT			inputs[256]	= {};
+	uint32_t		totalInputs	= 0;
+	for(uint32_t iKey = 1, keyCount = ::gpk::size(app.RemoteInput.KeyboardCurrent.KeyState); iKey < keyCount; ++iKey) {
+		if(app.RemoteInput.KeyDown((uint8_t)iKey)) {
+			info_printf("Key down (%u) '%c'", iKey, (char)iKey);
+			inputs[totalInputs].type			= INPUT_KEYBOARD;
+			inputs[totalInputs].ki.wVk			= 0;
+			inputs[totalInputs].ki.wScan		= (uint8_t)iKey;
+			inputs[totalInputs].ki.dwFlags		= 0;
+			inputs[totalInputs].ki.time			= 0;
+			inputs[totalInputs].ki.dwExtraInfo	= 0;
+			++totalInputs;
+		}
+		else if(app.RemoteInput.KeyUp((uint8_t)iKey)) {
+			info_printf("Key up (%u) '%c'", iKey, (char)iKey);
+			inputs[totalInputs].type			= INPUT_KEYBOARD;
+			inputs[totalInputs].ki.wVk			= 0;
+			inputs[totalInputs].ki.wScan		= (uint8_t)iKey;
+			inputs[totalInputs].ki.dwFlags		= KEYEVENTF_KEYUP;
+			inputs[totalInputs].ki.time			= 0;
+			inputs[totalInputs].ki.dwExtraInfo	= 0;
+			++totalInputs;
+		}
+	}
+	error_if(totalInputs && 0 == ::SendInput(totalInputs, inputs, sizeof(INPUT)), "Failed to send inputs to Windows.");
+	totalInputs	= 0;
+	if(app.RemoteInput.ButtonDown(0)) {
+		info_printf("Button down (0)");
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_LEFTDOWN;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		++totalInputs;
+	}
+	else if(app.RemoteInput.ButtonUp(0)) {
+		info_printf("Button up (0)");
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_LEFTUP;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		++totalInputs;
+	}
+
+	if(app.RemoteInput.ButtonDown(1)) {
+		info_printf("Button down (1)");
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_RIGHTDOWN;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		++totalInputs;
+	}
+	else if(app.RemoteInput.ButtonUp(1)) {
+		info_printf("Button up (1)");
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_RIGHTUP;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		++totalInputs;
+	}
+
+	if(app.RemoteInput.ButtonDown(2)) {
+		info_printf("Button down (2)");
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_MIDDLEDOWN;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		++totalInputs;
+	}
+	else if(app.RemoteInput.ButtonUp(2)) {
+		info_printf("Button up (2)");
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_MIDDLEUP;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		++totalInputs;
+	}
+
+	error_if(totalInputs && 0 == ::SendInput(totalInputs, inputs, sizeof(INPUT)), "Failed to send inputs to Windows.");
 
 	::dwh::sessionServerUpdate(app.Server);
 
@@ -217,7 +352,6 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	sprintf_s(buffer, "Last frame seconds: %g.", app.Framework.FrameInfo.Seconds.LastFrame);
 	SetWindowText(app.Framework.MainDisplay.PlatformDetail.WindowHandle, buffer);
 
-
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
@@ -226,19 +360,17 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			::gpk::error_t											draw					(::gme::SApplication & app)						{ 
 	::gpk::STimer															timer;
 	app;
-	//::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		target;
-	//target.create();
-	//target->resize(app.Framework.MainDisplay.Size, {0xFF, 0x40, 0x7F, 0xFF}, (uint32_t)-1);
-	//{
-	//	::gpk::mutex_guard														lock					(app.LockGUI);
-	//	::gpk::controlDrawHierarchy(app.Framework.GUI, 0, target->Color.View);
-	//}
-	//{
-	//	::gpk::mutex_guard														lock					(app.LockRender);
-	//	//::gpk::grid_scale(target->Color.View, app.DesktopImage.View);
-	//	app.Offscreen														= target;
-	//}
-	app.Offscreen														= {};
+	::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		target;
+	target.create();
+	target->resize(app.Framework.MainDisplay.Size, {0xFF, 0x40, 0x7F, 0xFF}, (uint32_t)-1);
+	{
+		::gpk::mutex_guard														lock					(app.LockGUI);
+		::gpk::controlDrawHierarchy(app.Framework.GUI, 0, target->Color.View);
+	}
+	{
+		::gpk::mutex_guard														lock					(app.LockRender);
+		app.Offscreen														= target;
+	}
 	//timer.Frame();
 	//warning_printf("Draw time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 
