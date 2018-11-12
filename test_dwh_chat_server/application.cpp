@@ -172,13 +172,14 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::array_pod<byte_t>												lineCommand;
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
-		lineCommand.resize(finalImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 1);
+		lineCommand.resize(finalImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
 		lineCommand[0]														= 7;
-		*(uint16_t*)&lineCommand[1]											= linesToSend[iLine];
+		lineCommand[1]														= 0;
+		*(uint16_t*)&lineCommand[2]											= linesToSend[iLine];
 		{
 			::gpk::mutex_guard														lock					(app.LockRender);
-			*(::gpk::SCoord2<uint16_t>*)&lineCommand[3]							= finalImage.metrics().Cast<uint16_t>();
-			memcpy(&lineCommand[7], finalImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(::gpk::SColorBGRA));
+			*(::gpk::SCoord2<uint16_t>*)&lineCommand[4]							= finalImage.metrics().Cast<uint16_t>();
+			memcpy(&lineCommand[8], finalImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(::gpk::SColorBGRA));
 		}
 		{
 			::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
