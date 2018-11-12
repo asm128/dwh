@@ -93,6 +93,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 	++redundancy;
 	bool															forceSendInput					= (0 == (redundancy % 3));
 
+	::gpk::array_pod<uint16_t>										lineCodecCache					= {};
 	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
 		if(app.Client.Client.Stage == ::dwh::SESSION_STAGE_CLIENT_IDLE) {
 			::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>	queue;
@@ -107,15 +108,25 @@ static		void													sessionClientConnect		(void * pclient)														{
 					continue;
 				uint32_t														format						= queue[iRecv]->Payload[1];
 				uint32_t														line						= *(uint16_t*)(&queue[iRecv]->Payload[2]);
-				if(0 == format) {
- 					//info_printf("Received line: %u.", line);
-					::gpk::SCoord2<uint16_t>										remoteScreenSize			= *(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[4];
-					{
-						::gpk::mutex_guard												lock						(app.LockRender);
-						app.OffscreenRemote->resize(remoteScreenSize.Cast<uint32_t>());
-					}
-					memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[8], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
+				::gpk::SCoord2<uint16_t>										remoteScreenSize			= *(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[4];
+				{
+					::gpk::mutex_guard												lock						(app.LockRender);
+					app.OffscreenRemote->resize(remoteScreenSize.Cast<uint32_t>());
 				}
+				//if(0 == format) {
+ 				//	//info_printf("Received line: %u.", line);
+				//	memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[8], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
+				//}
+				//else 
+					if(1 == format) {
+						lineCodecCache.resize(remoteScreenSize.x);
+						::gpk::view_array<const uint16_t>								pixels16					= {(const uint16_t*)&queue[iRecv]->Payload[8], (queue[iRecv]->Payload.size() - 8) / 2};
+						for(uint32_t iPix = 0; iPix < remoteScreenSize.x; ++iPix) {
+							app.OffscreenRemote->Color.View[line][iPix]					= {(uint8_t)((pixels16[iPix] & 0x1F) / 31.0 * 255), (uint8_t)(((pixels16[iPix] >> 5) & 0x3F) / 63.0 * 255), (uint8_t)(((pixels16[iPix] >> 11) & 0x1F) / 31.0 * 255), 255};
+						
+						}
+					
+					}
 			}
 			::gpk::array_pod<byte_t>										packetInputs;
 			packetInputs.push_back(7); 

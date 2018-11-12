@@ -146,9 +146,10 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	::gpk::grid_scale(app.DesktopImage.View, view);
 
-	static int even = 0;
+	static uint8_t even = 0;
 	++even;
 	even %= 2;
+	even = 1;
 
 	for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) {
 		if(memcmp(app.DesktopImage.View[iLine].begin(), app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA))) 
@@ -164,7 +165,22 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	//iRedundancy															%= app.DesktopImage.metrics().y;
 	//linesToSend.push_back(iRedundancy);
 
+	uint8_t format = even;
+
 	::gpk::SImage<::gpk::SColorBGRA>										& finalImage	= app.DesktopImage;
+
+	::gpk::SImage<uint16_t>													lowrescolorImage	= {};
+	if(1 == format) {
+		lowrescolorImage.resize(app.DesktopImage.metrics());
+		for(uint32_t iPix = 0; iPix < lowrescolorImage.Texels.size(); ++iPix) {
+			::gpk::SColorBGRA														& colorSrc			= app.DesktopImage.Texels[iPix];
+			uint16_t																& colorDst			= lowrescolorImage.Texels[iPix];
+			colorDst															 = ((uint16_t)(colorSrc.b / 255.0 * 31) << 0);
+			colorDst															|= ((uint16_t)(colorSrc.g / 255.0 * 63) << 5);
+			colorDst															|= ((uint16_t)(colorSrc.r / 255.0 * 31) << 11);
+		}
+	}
+
 	//finalImage.resize(app.DesktopImage.metrics() / 2);
 	//::gpk::grid_scale(finalImage.View, app.DesktopImage.View);
 
@@ -172,34 +188,67 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::array_pod<byte_t>												lineCommand;
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
-		lineCommand.resize(finalImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
+		if(1 == format)
+			lineCommand.resize(finalImage.metrics().x * sizeof(uint16_t) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
+		else if(0 == format)
+			lineCommand.resize(finalImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
 		lineCommand[0]														= 7;
-		lineCommand[1]														= 0;
+		lineCommand[1]														= format;
 		*(uint16_t*)&lineCommand[2]											= linesToSend[iLine];
-		{
-			::gpk::mutex_guard														lock					(app.LockRender);
-			*(::gpk::SCoord2<uint16_t>*)&lineCommand[4]							= finalImage.metrics().Cast<uint16_t>();
-			memcpy(&lineCommand[8], finalImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(::gpk::SColorBGRA));
-		}
-		{
-			::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
-			for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
-				int32_t clientSession = -1;
-				for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
-					if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
-						clientSession = (int32_t)iSession;
-						break;
+		if(format == 0) {
+			{
+				::gpk::mutex_guard														lock					(app.LockRender);
+				*(::gpk::SCoord2<uint16_t>*)&lineCommand[4]							= finalImage.metrics().Cast<uint16_t>();
+				memcpy(&lineCommand[8], finalImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(::gpk::SColorBGRA));
+			}
+			{
+				::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
+				for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
+					int32_t clientSession = -1;
+					for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
+						if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
+							clientSession = (int32_t)iSession;
+							break;
+						}
 					}
-				}
-				if(-1 == clientSession)
-					continue;
+					if(-1 == clientSession)
+						continue;
 					
-				if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
-					continue;
-				if(0 == app.Server.UDPServer.Clients[iClient])
-					continue;
-				::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
-				::gpk::connectionPushData(connection, connection.Queue, lineCommand);
+					if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
+						continue;
+					if(0 == app.Server.UDPServer.Clients[iClient])
+						continue;
+					::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
+					::gpk::connectionPushData(connection, connection.Queue, lineCommand);
+				}
+			}
+		}
+		else if(format == 1) {	// 16 bit BGR
+			{
+				::gpk::mutex_guard														lock					(app.LockRender);
+				*(::gpk::SCoord2<uint16_t>*)&lineCommand[4]							= finalImage.metrics().Cast<uint16_t>();
+				memcpy(&lineCommand[8], lowrescolorImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(uint16_t));
+			}
+			{
+				::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
+				for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
+					int32_t clientSession = -1;
+					for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
+						if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
+							clientSession = (int32_t)iSession;
+							break;
+						}
+					}
+					if(-1 == clientSession)
+						continue;
+					
+					if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
+						continue;
+					if(0 == app.Server.UDPServer.Clients[iClient])
+						continue;
+					::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
+					::gpk::connectionPushData(connection, connection.Queue, lineCommand);
+				}
 			}
 		}
 		//::gpk::sleep(0);
@@ -347,7 +396,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	::dwh::sessionServerUpdate(app.Server);
 
-	::gpk::sleep(5);
+	::gpk::sleep(0);
 
 	char buffer[256] = {};
 	sprintf_s(buffer, "Last frame seconds: %g.", app.Framework.FrameInfo.Seconds.LastFrame);
