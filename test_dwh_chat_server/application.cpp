@@ -1,4 +1,5 @@
 #include "application.h"
+#include "dwh_stream.h"
 #include "gpk_bitmap_file.h"
 #include "gpk_tcpip.h"
 #include "gpk_connection.h"
@@ -130,76 +131,72 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		::gpk::mutex_guard														lock					(app.LockRender);
 		//GetWindowRect(0, &rect);
 		if(app.DesktopImage.metrics() != finalImageSize) {
-			app.DesktopImage		.resize(finalImageSize);
-			app.DesktopImagePrevious.resize(finalImageSize);
+			app.DesktopImage			.resize(finalImageSize);
+			app.DesktopImagePrevious	.resize(finalImageSize);
+			app.DesktopImage16			.resize(finalImageSize);
+			app.DesktopImage16Previous	.resize(finalImageSize);
 		}
 	}
 
 
 	::gpk::SImage<::gpk::SColorBGRA>										temp;
 	temp.resize((uint32_t)rect.right, (uint32_t)rect.bottom);
-	//::gpk::array_pod<::gpk::SColorBGRA>										& pixels				= app.DesktopImage.Texels;
 	::gpk::view_grid<::gpk::SColorBGRA>										& view					= temp.View;//{pixels.begin(), (uint32_t)rect.right, (uint32_t)rect.bottom};
 	HDC																		dc						= GetDC(0);
 	::getBuffer(app.OffscreenDetail, dc, rect.right, rect.bottom, view);
 	ReleaseDC(0, dc);
 
 	::gpk::grid_scale(app.DesktopImage.View, view);
-
-	static uint8_t even = 0;
-	++even;
-	even %= 2;
-	even = 1;
-
-	for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) {
-		if(memcmp(app.DesktopImage.View[iLine].begin(), app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA))) 
-			memcpy(app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA));
-			//if(even && 0 == (iLine % 2))
+	if(false == app.Source16Bit) {
+		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) {
+			if (memcmp(app.DesktopImage.View[iLine].begin(), app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA)))  {
+				memcpy(app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA));
 				linesToSend.push_back(iLine);
-			//else if((iLine & 2) && !even)
-			//	linesToSend.push_back(iLine);
+			}
+		}
 	}
-
-	//static uint16_t															iRedundancy						= 0;
-	//iRedundancy															+= 1;
-	//iRedundancy															%= app.DesktopImage.metrics().y;
-	//linesToSend.push_back(iRedundancy);
-
-	uint8_t format = even;
-
-	::gpk::SImage<::gpk::SColorBGRA>										& finalImage	= app.DesktopImage;
-
-	::gpk::SImage<uint16_t>													lowrescolorImage	= {};
-	if(1 == format) {
-		lowrescolorImage.resize(app.DesktopImage.metrics());
-		for(uint32_t iPix = 0; iPix < lowrescolorImage.Texels.size(); ++iPix) {
+	else {
+		for(uint32_t iPix = 0; iPix < app.DesktopImage.Texels.size(); ++iPix) {
 			::gpk::SColorBGRA														& colorSrc			= app.DesktopImage.Texels[iPix];
-			uint16_t																& colorDst			= lowrescolorImage.Texels[iPix];
+			uint16_t																& colorDst			= app.DesktopImage16.Texels[iPix];
 			colorDst															 = ((uint16_t)(colorSrc.b / 255.0 * 31) << 0);
 			colorDst															|= ((uint16_t)(colorSrc.g / 255.0 * 63) << 5);
 			colorDst															|= ((uint16_t)(colorSrc.r / 255.0 * 31) << 11);
 		}
+		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage16.metrics().y; ++iLine) {
+			if (memcmp(app.DesktopImage16			.View[iLine].begin(), app.DesktopImage16Previous.View[iLine].begin(), app.DesktopImage16.View.metrics().x * sizeof(uint16_t))) {
+				memcpy(app.DesktopImage16Previous	.View[iLine].begin(), app.DesktopImage16		.View[iLine].begin(), app.DesktopImage16.View.metrics().x * sizeof(uint16_t));
+				linesToSend.push_back(iLine);
+			}
+		}
 	}
 
-	//finalImage.resize(app.DesktopImage.metrics() / 2);
-	//::gpk::grid_scale(finalImage.View, app.DesktopImage.View);
+	static uint8_t															even					= 0;
+	++even;
+	even																%= 2;
+	even																= 1;
+
+	const uint8_t															format					= app.Source16Bit ? 1 : 0;
 
 	//info_printf("%s", "Lines to send: ");
 	::gpk::array_pod<byte_t>												lineCommand;
+	::gpk::array_pod<ubyte_t>												deflated;
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
 		if(1 == format)
-			lineCommand.resize(finalImage.metrics().x * sizeof(uint16_t) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
+			lineCommand.resize(app.DesktopImage.metrics().x * sizeof(uint16_t) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
 		else if(0 == format)
-			lineCommand.resize(finalImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
-		lineCommand[0]														= 7;
-		lineCommand[1]														= format;
-		*(uint16_t*)&lineCommand[2]											= linesToSend[iLine];
+			lineCommand.resize(app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
+		::dwh::SLineHeader														& lineHeader			= *(::dwh::SLineHeader*)lineCommand.begin();
+		lineHeader.SessionCommand											= 7;
+		lineHeader.Format.Bits16											= format;
+		lineHeader.Format.Compression										= 0;
+		lineHeader.LineNumber												= linesToSend[iLine];
+		lineHeader.ImageSize												= app.DesktopImage.metrics().Cast<uint16_t>();
 		if(format == 0) {
 			{
 				::gpk::mutex_guard														lock					(app.LockRender);
-				*(::gpk::SCoord2<uint16_t>*)&lineCommand[4]							= finalImage.metrics().Cast<uint16_t>();
-				memcpy(&lineCommand[8], finalImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(::gpk::SColorBGRA));
+				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage.View[linesToSend[iLine]].begin(), app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA));
 			}
 			{
 				::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
@@ -226,8 +223,10 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		else if(format == 1) {	// 16 bit BGR
 			{
 				::gpk::mutex_guard														lock					(app.LockRender);
-				*(::gpk::SCoord2<uint16_t>*)&lineCommand[4]							= finalImage.metrics().Cast<uint16_t>();
-				memcpy(&lineCommand[8], lowrescolorImage.View[linesToSend[iLine]].begin(), finalImage.metrics().x * sizeof(uint16_t));
+				deflated.resize(app.DesktopImage16.View[linesToSend[iLine]].size() * 4);
+				::dwh::lineDeflate({(ubyte_t*)app.DesktopImage16.View[linesToSend[iLine]].begin(), app.DesktopImage16.View[linesToSend[iLine]].size() * 2}, deflated);
+				info_printf("Inflated size: %u. Deflated: %u.", app.DesktopImage16.View[linesToSend[iLine]].size() * 2, deflated.size());
+				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage16.View[linesToSend[iLine]].begin(), app.DesktopImage16.metrics().x * sizeof(uint16_t));
 			}
 			{
 				::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);

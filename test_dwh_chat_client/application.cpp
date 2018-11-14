@@ -3,6 +3,7 @@
 #include "gpk_tcpip.h"
 #include "gpk_connection.h"
 #include "gpk_grid_scale.h"
+#include "dwh_stream.h"
 
 //#define GPK_AVOID_LOCAL_APPLICATION_MODULE_MODEL_EXECUTABLE_RUNTIME
 #include "gpk_app_impl.h"
@@ -24,6 +25,8 @@ static		void													sessionClientConnect		(void * pclient)														{
 	::dwh::SUDPSessionClient												& client					= *(::dwh::SUDPSessionClient *)pclient;
 	::gpk::tcpipAddress(32765, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressServer	);
 	::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressAuthority);
+	//client.AddressServer		= {{192, 168, 0, 179}, 32765};
+	//client.AddressAuthority		= {{192, 168, 0, 179}, 32766};
 	client.Client.IdServer												= 0;
 	error_if(errored(::dwh::sessionClientConnect(client)), "Failed to connect to server. %s", "");
 }
@@ -97,8 +100,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
 		if(app.Client.Client.Stage == ::dwh::SESSION_STAGE_CLIENT_IDLE) {
 			::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>	queue;
-			{
-				// Do work
+			{ // Do work
 				::gpk::mutex_guard												lockQeueue					(app.Client.UDPClient.Queue.MutexReceive);
 				queue														= app.Client.UDPClient.Queue.Received;
 				app.Client.UDPClient.Queue.Received.clear();
@@ -106,27 +108,28 @@ static		void													sessionClientConnect		(void * pclient)														{
 			for(uint32_t iRecv = 0; iRecv < queue.size(); ++iRecv) {
 				if(7 != queue[iRecv]->Payload[0])
 					continue;
-				uint32_t														format						= queue[iRecv]->Payload[1];
-				uint32_t														line						= *(uint16_t*)(&queue[iRecv]->Payload[2]);
-				::gpk::SCoord2<uint16_t>										remoteScreenSize			= *(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[4];
+				::dwh::SLineHeader												& lineHeader				= *(::dwh::SLineHeader*)queue[iRecv]->Payload.begin();
+				uint32_t														bits16						= lineHeader.Format.Bits16;//queue[iRecv]->Payload[1];
+				uint32_t														line						= lineHeader.LineNumber;//*(uint16_t*)(&queue[iRecv]->Payload[2]);
+				::gpk::SCoord2<uint16_t>										remoteScreenSize			= lineHeader.ImageSize;//*(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[4];
 				{
 					::gpk::mutex_guard												lock						(app.LockRender);
 					app.OffscreenRemote->resize(remoteScreenSize.Cast<uint32_t>());
 				}
-				//if(0 == format) {
- 				//	//info_printf("Received line: %u.", line);
-				//	memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[8], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
-				//}
-				//else 
-					if(1 == format) {
+				if(0 == bits16) {
+ 					//info_printf("Received line: %u.", line);
+					memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[sizeof(::dwh::SLineHeader)], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
+				}
+				else {
+					if(1 == bits16) {
 						lineCodecCache.resize(remoteScreenSize.x);
-						::gpk::view_array<const uint16_t>								pixels16					= {(const uint16_t*)&queue[iRecv]->Payload[8], (queue[iRecv]->Payload.size() - 8) / 2};
+						::gpk::view_array<const uint16_t>								pixels16					= {(const uint16_t*)&queue[iRecv]->Payload[sizeof(::dwh::SLineHeader)], (queue[iRecv]->Payload.size() - sizeof(::dwh::SLineHeader)) / 2};
 						for(uint32_t iPix = 0; iPix < remoteScreenSize.x; ++iPix) {
 							app.OffscreenRemote->Color.View[line][iPix]					= {(uint8_t)((pixels16[iPix] & 0x1F) / 31.0 * 255), (uint8_t)(((pixels16[iPix] >> 5) & 0x3F) / 63.0 * 255), (uint8_t)(((pixels16[iPix] >> 11) & 0x1F) / 31.0 * 255), 255};
 						
 						}
-					
 					}
+				}
 			}
 			::gpk::array_pod<byte_t>										packetInputs;
 			packetInputs.push_back(7); 

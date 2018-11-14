@@ -11,16 +11,18 @@
 #define APPLICATION_H_2078934982734
 
 	struct SOffscreenPlatformDetail { // raii destruction of resources
-		uint32_t																							BitmapInfoSize								= 0;
-		::BITMAPINFO																						* BitmapInfo								= 0;
-		::HDC																								IntermediateDeviceContext					= 0;    // <- note, we're creating, so it needs to be destroyed
-		::HBITMAP																							IntermediateBitmap							= 0;
+#if defined(GPK_WINDOWS)
+		uint32_t																BitmapInfoSize						= 0;
+		::BITMAPINFO															* BitmapInfo						= 0;
+		::HDC																	IntermediateDeviceContext			= 0;    // <- note, we're creating, so it needs to be destroyed
+		::HBITMAP																IntermediateBitmap					= 0;
 
-																											~SOffscreenPlatformDetail					()																					{
+																				~SOffscreenPlatformDetail			()																					{
 			if(BitmapInfo					) ::free			(BitmapInfo					); 
 			if(IntermediateBitmap			) ::DeleteObject	(IntermediateBitmap			); 
 			if(IntermediateDeviceContext	) ::DeleteDC		(IntermediateDeviceContext	); 
 		}
+#endif
 	};
 
 namespace gme // I'm gonna use a different namespace in order to test a few things about the macros.
@@ -40,6 +42,12 @@ namespace gme // I'm gonna use a different namespace in order to test a few thin
 
 		::gpk::SImage<::gpk::SColorBGRA>										DesktopImage;
 		::gpk::SImage<::gpk::SColorBGRA>										DesktopImagePrevious;
+
+		::gpk::SImage<uint16_t>													DesktopImage16;
+		::gpk::SImage<uint16_t>													DesktopImage16Previous;
+
+		bool																	Source16Bit							= true;
+		bool																	Compress							= false;
 
 		SOffscreenPlatformDetail												OffscreenDetail;
 

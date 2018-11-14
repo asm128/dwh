@@ -36,6 +36,9 @@
     <ClCompile Include="dwh_table.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="dwh_stream.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="dwh_command.h">
@@ -66,6 +69,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="dwh_table.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dwh_stream.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
