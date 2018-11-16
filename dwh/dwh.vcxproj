@@ -168,12 +168,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dwh.cpp" />
-    <ClCompile Include="dwh_chat.cpp" />
     <ClCompile Include="dwh_db.cpp" />
     <ClCompile Include="dwh_session.cpp" />
     <ClCompile Include="dwh_storage_server.cpp" />
     <ClCompile Include="dwh_session_udp.cpp" />
-    <ClCompile Include="dwh_stream.cpp" />
     <ClCompile Include="dwh_table.cpp" />
   </ItemGroup>
   <ItemGroup>

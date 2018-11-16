@@ -96,7 +96,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 	++redundancy;
 	bool															forceSendInput					= (0 == (redundancy % 3));
 
-	::gpk::array_pod<uint16_t>										lineCodecCache					= {};
+	//::gpk::array_pod<uint16_t>										lineCodecCache					= {};
 	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {
 		if(app.Client.Client.Stage == ::dwh::SESSION_STAGE_CLIENT_IDLE) {
 			::gpk::array_obj<::gpk::ptr_obj<::gpk::SUDPConnectionMessage>>	queue;
@@ -108,7 +108,8 @@ static		void													sessionClientConnect		(void * pclient)														{
 			for(uint32_t iRecv = 0; iRecv < queue.size(); ++iRecv) {
 				if(7 != queue[iRecv]->Payload[0])
 					continue;
-				::dwh::SLineHeader												& lineHeader				= *(::dwh::SLineHeader*)queue[iRecv]->Payload.begin();
+				::gpk::ptr_nco<::gpk::SUDPConnectionMessage>					linemsg						= queue[iRecv];
+				::dwh::SLineHeader												& lineHeader				= *(::dwh::SLineHeader*)linemsg->Payload.begin();
 				uint32_t														bits16						= lineHeader.Format.Bits16;//queue[iRecv]->Payload[1];
 				uint32_t														line						= lineHeader.LineNumber;//*(uint16_t*)(&queue[iRecv]->Payload[2]);
 				::gpk::SCoord2<uint16_t>										remoteScreenSize			= lineHeader.ImageSize;//*(::gpk::SCoord2<uint16_t>*)&queue[iRecv]->Payload[4];
@@ -116,14 +117,16 @@ static		void													sessionClientConnect		(void * pclient)														{
 					::gpk::mutex_guard												lock						(app.LockRender);
 					app.OffscreenRemote->resize(remoteScreenSize.Cast<uint32_t>());
 				}
+				static constexpr const uint32_t lineHeaderSize = sizeof(::dwh::SLineHeader);
 				if(0 == bits16) {
  					//info_printf("Received line: %u.", line);
-					memcpy(app.OffscreenRemote->Color.View[line].begin(), &queue[iRecv]->Payload[sizeof(::dwh::SLineHeader)], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
+					memcpy(app.OffscreenRemote->Color.View[line].begin(), &linemsg->Payload[lineHeaderSize], remoteScreenSize.x * sizeof(::gpk::SColorBGRA));
 				}
 				else {
 					if(1 == bits16) {
-						lineCodecCache.resize(remoteScreenSize.x);
-						::gpk::view_array<const uint16_t>								pixels16					= {(const uint16_t*)&queue[iRecv]->Payload[sizeof(::dwh::SLineHeader)], (queue[iRecv]->Payload.size() - sizeof(::dwh::SLineHeader)) / 2};
+						//lineCodecCache.resize(remoteScreenSize.x);
+						const uint32_t													payloadLineSize				= (queue[iRecv]->Payload.size() - lineHeaderSize) / 2;
+						::gpk::view_array<const uint16_t>								pixels16					= {(const uint16_t*)&linemsg->Payload[lineHeaderSize], payloadLineSize};
 						for(uint32_t iPix = 0; iPix < remoteScreenSize.x; ++iPix) {
 							app.OffscreenRemote->Color.View[line][iPix]					= {(uint8_t)((pixels16[iPix] & 0x1F) / 31.0 * 255), (uint8_t)(((pixels16[iPix] >> 5) & 0x3F) / 63.0 * 255), (uint8_t)(((pixels16[iPix] >> 11) & 0x1F) / 31.0 * 255), 255};
 						

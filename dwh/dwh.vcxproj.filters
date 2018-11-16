@@ -30,13 +30,7 @@
     <ClCompile Include="dwh_session_udp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dwh_chat.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="dwh_table.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="dwh_stream.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -5,6 +5,7 @@
 #include "gpk_connection.h"
 #include "gpk_grid_scale.h"
 #include "gpk_chrono.h"
+#include "gpk_deflate.h"
 
 //#define GPK_AVOID_LOCAL_APPLICATION_MODULE_MODEL_EXECUTABLE_RUNTIME
 #include "gpk_app_impl.h"
@@ -181,73 +182,51 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	//info_printf("%s", "Lines to send: ");
 	::gpk::array_pod<byte_t>												lineCommand;
 	::gpk::array_pod<ubyte_t>												deflated;
+	uint32_t																lineSizeInBytes			= 0;
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
-		if(1 == format)
-			lineCommand.resize(app.DesktopImage.metrics().x * sizeof(uint16_t) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
-		else if(0 == format)
-			lineCommand.resize(app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA) + sizeof(::gpk::SCoord2<uint16_t>) + sizeof(uint16_t) + 2);	// session command(1) + line format(1) + line numer(2) + image size(4)
+		if(1 == format) 
+			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(uint16_t);
+		else if(0 == format)													
+			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(uint16_t);
+		lineCommand.resize(lineSizeInBytes + sizeof(::dwh::SLineHeader));	// session command(1) + line format(1) + line numer(2) + image size(4)
 		::dwh::SLineHeader														& lineHeader			= *(::dwh::SLineHeader*)lineCommand.begin();
 		lineHeader.SessionCommand											= 7;
 		lineHeader.Format.Bits16											= format;
-		lineHeader.Format.Compression										= 0;
+		//lineHeader.Format.Compression										= 0;
 		lineHeader.LineNumber												= linesToSend[iLine];
 		lineHeader.ImageSize												= app.DesktopImage.metrics().Cast<uint16_t>();
 		if(format == 0) {
 			{
 				::gpk::mutex_guard														lock					(app.LockRender);
-				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage.View[linesToSend[iLine]].begin(), app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA));
-			}
-			{
-				::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
-				for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
-					int32_t clientSession = -1;
-					for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
-						if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
-							clientSession = (int32_t)iSession;
-							break;
-						}
-					}
-					if(-1 == clientSession)
-						continue;
-					
-					if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
-						continue;
-					if(0 == app.Server.UDPServer.Clients[iClient])
-						continue;
-					::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
-					::gpk::connectionPushData(connection, connection.Queue, lineCommand);
-				}
+				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage.View[lineHeader.LineNumber].begin(), lineSizeInBytes);
 			}
 		}
 		else if(format == 1) {	// 16 bit BGR
 			{
 				::gpk::mutex_guard														lock					(app.LockRender);
-				deflated.resize(app.DesktopImage16.View[linesToSend[iLine]].size() * 4);
-				::dwh::lineDeflate({(ubyte_t*)app.DesktopImage16.View[linesToSend[iLine]].begin(), app.DesktopImage16.View[linesToSend[iLine]].size() * 2}, deflated);
-				info_printf("Inflated size: %u. Deflated: %u.", app.DesktopImage16.View[linesToSend[iLine]].size() * 2, deflated.size());
-				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage16.View[linesToSend[iLine]].begin(), app.DesktopImage16.metrics().x * sizeof(uint16_t));
+				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage16.View[lineHeader.LineNumber].begin(), lineSizeInBytes);
 			}
-			{
-				::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
-				for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
-					int32_t clientSession = -1;
-					for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
-						if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
-							clientSession = (int32_t)iSession;
-							break;
-						}
+		}
+		{
+			::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
+			for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
+				int32_t clientSession = -1;
+				for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
+					if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
+						clientSession = (int32_t)iSession;
+						break;
 					}
-					if(-1 == clientSession)
-						continue;
-					
-					if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
-						continue;
-					if(0 == app.Server.UDPServer.Clients[iClient])
-						continue;
-					::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
-					::gpk::connectionPushData(connection, connection.Queue, lineCommand);
 				}
+				if(-1 == clientSession)
+					continue;
+					
+				if(app.Server.Server.Clients[clientSession].Stage != ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT)
+					continue;
+				if(0 == app.Server.UDPServer.Clients[iClient])
+					continue;
+				::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
+				::gpk::connectionPushData(connection, connection.Queue, lineCommand, false, true);
 			}
 		}
 		//::gpk::sleep(0);
