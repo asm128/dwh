@@ -254,13 +254,16 @@ static constexpr const size_t f = sizeof(SSessionServerAccept);
 	::dwh::SKeyPair										keysClient											= {};
 	{
 		::dwh::SSessionServer								server												= authority.Servers[(uint32_t)dataReceived.IdServer];
-		for(uint32_t iClient = 0, countClients = server.Clients.size(); iClient < countClients; ++iClient )
-			if(server.Clients[iClient].IdClient == dataReceived.IdClient[0]) {
-				keysServer										= server.Clients[iClient].RSAKeysServer;
-				keysClient										= server.Clients[iClient].RSAKeysClient;
+		for(uint32_t iClient = 0, countClients = server.Clients.size(); iClient < countClients; ++iClient ) {
+			::dwh::SSessionClientRecord							& clientRecord										= server.Clients[iClient];
+			if(clientRecord.IdClient == dataReceived.IdClient[0]) {
+				keysServer										= clientRecord.RSAKeysServer;
+				keysClient										= clientRecord.RSAKeysClient;
 				validClient										= iClient;
-				server.Clients[iClient].Stage					= SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT;
+				clientRecord.Stage								= SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT;
+				break;
 			}
+		}
 	}
 
 	::SAuthorityServerConfirmClientResponse				dataToSend											= {};

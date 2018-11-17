@@ -56,7 +56,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::SOffscreenPlatformDetail												& offscreenDetail							= offscreenCache;//{};
 	const ::gpk::SCoord2<uint32_t>											metricsSource								= colorArray.metrics();
 	if( 0 == offscreenDetail.BitmapInfo || 
-		( metricsSource.x != (uint32_t)offscreenDetail.BitmapInfo->bmiHeader.biWidth  
+		(  metricsSource.x != (uint32_t)offscreenDetail.BitmapInfo->bmiHeader.biWidth  
 		|| metricsSource.y != (uint32_t)offscreenDetail.BitmapInfo->bmiHeader.biHeight 
 		)
 	) {
@@ -65,23 +65,23 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			free(offscreenDetail.BitmapInfo);
 		ree_if(0 == (offscreenDetail.BitmapInfo = (::BITMAPINFO*)::malloc(offscreenDetail.BitmapInfoSize)), "malloc(%u) failed! Out of memory?", offscreenDetail.BitmapInfoSize);
 
-		offscreenDetail.BitmapInfo->bmiHeader.biSize							= sizeof(::BITMAPINFO);
-		offscreenDetail.BitmapInfo->bmiHeader.biWidth							= metricsSource.x;
-		offscreenDetail.BitmapInfo->bmiHeader.biHeight							= metricsSource.y;
-		offscreenDetail.BitmapInfo->bmiHeader.biPlanes							= 1;
-		offscreenDetail.BitmapInfo->bmiHeader.biBitCount						= 32;
-		offscreenDetail.BitmapInfo->bmiHeader.biCompression						= BI_RGB;
-		offscreenDetail.BitmapInfo->bmiHeader.biSizeImage						= bytesToCopy;
-		offscreenDetail.BitmapInfo->bmiHeader.biXPelsPerMeter					= 0x0ec4; // Paint and PSP use these values.
-		offscreenDetail.BitmapInfo->bmiHeader.biYPelsPerMeter					= 0x0ec4; // Paint and PSP use these values.
-		offscreenDetail.BitmapInfo->bmiHeader.biClrUsed							= 0; 
-		offscreenDetail.BitmapInfo->bmiHeader.biClrImportant					= 0;
+		offscreenDetail.BitmapInfo->bmiHeader.biSize						= sizeof(::BITMAPINFO);
+		offscreenDetail.BitmapInfo->bmiHeader.biWidth						= metricsSource.x;
+		offscreenDetail.BitmapInfo->bmiHeader.biHeight						= metricsSource.y;
+		offscreenDetail.BitmapInfo->bmiHeader.biPlanes						= 1;
+		offscreenDetail.BitmapInfo->bmiHeader.biBitCount					= 32;
+		offscreenDetail.BitmapInfo->bmiHeader.biCompression					= BI_RGB;
+		offscreenDetail.BitmapInfo->bmiHeader.biSizeImage					= bytesToCopy;
+		offscreenDetail.BitmapInfo->bmiHeader.biXPelsPerMeter				= 0x0ec4; // Paint and PSP use these values.
+		offscreenDetail.BitmapInfo->bmiHeader.biYPelsPerMeter				= 0x0ec4; // Paint and PSP use these values.
+		offscreenDetail.BitmapInfo->bmiHeader.biClrUsed						= 0; 
+		offscreenDetail.BitmapInfo->bmiHeader.biClrImportant				= 0;
 
-		offscreenDetail.IntermediateDeviceContext								= ::CreateCompatibleDC(hdc);    // <- note, we're creating, so it needs to be destroyed
-		char																		* ppvBits									= 0;
+		offscreenDetail.IntermediateDeviceContext							= ::CreateCompatibleDC(hdc);    // <- note, we're creating, so it needs to be destroyed
+		char																	* ppvBits									= 0;
 		reterr_error_if(0 == (offscreenDetail.IntermediateBitmap = ::CreateDIBSection(offscreenDetail.IntermediateDeviceContext, offscreenDetail.BitmapInfo, DIB_RGB_COLORS, (void**) &ppvBits, NULL, 0)), "%s", "Failed to create intermediate dib section.");
 	}
-	::HBITMAP																	hBmpOld										= (::HBITMAP)::SelectObject(offscreenDetail.IntermediateDeviceContext, offscreenDetail.IntermediateBitmap);    // <- altering state
+	::HBITMAP																hBmpOld										= (::HBITMAP)::SelectObject(offscreenDetail.IntermediateDeviceContext, offscreenDetail.IntermediateBitmap);    // <- altering state
 	//error_if(FALSE == ::BitBlt(hdc, 0, 0, width, height, offscreenDetail.IntermediateDeviceContext, 0, 0, SRCCOPY), "%s", "Not sure why would this happen but probably due to mismanagement of the target size or the system resources. I've had it failing when I acquired the device too much and never released it.");
 	::SetStretchBltMode(hdc, COLORONCOLOR);
 	error_if(FALSE == ::StretchBlt(offscreenDetail.IntermediateDeviceContext, 0, 0, width, height, hdc, 0, 0, metricsSource.x, metricsSource.y, SRCCOPY), "%s", "Not sure why would this happen but probably due to mismanagement of the target size or the system resources. I've had it failing when I acquired the device too much and never released it.");
@@ -124,6 +124,9 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 
 	::gpk::array_pod<uint16_t>	linesToSend;
+	::gpk::array_pod<uint16_t>	linesToSendB;
+	::gpk::array_pod<uint16_t>	linesToSendG;
+	::gpk::array_pod<uint16_t>	linesToSendR;
 	RECT																	rect					= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
 	//::gpk::SCoord2<uint32_t>												finalImageSize			= {320, 200};//{(uint32_t)rect.right / 2, (uint32_t)rect.bottom / 2};
 	::gpk::SCoord2<uint32_t>												finalImageSize			= {(uint32_t)rect.right / 2, (uint32_t)rect.bottom / 2};
@@ -136,6 +139,12 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			app.DesktopImagePrevious	.resize(finalImageSize);
 			app.DesktopImage16			.resize(finalImageSize);
 			app.DesktopImage16Previous	.resize(finalImageSize);
+			app.DesktopImageR			.resize(finalImageSize);
+			app.DesktopImageRPrevious	.resize(finalImageSize);
+			app.DesktopImageG			.resize(finalImageSize);
+			app.DesktopImageGPrevious	.resize(finalImageSize);
+			app.DesktopImageB			.resize(finalImageSize);
+			app.DesktopImageBPrevious	.resize(finalImageSize);
 		}
 	}
 
@@ -148,73 +157,105 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	ReleaseDC(0, dc);
 
 	::gpk::grid_scale(app.DesktopImage.View, view);
+	const bool																channelwise				= app.ChannelWise;
+	static constexpr	const double										CHAN_SCALE_BR			= (1 / 255.0) * 31.0; 
+	static constexpr	const double										CHAN_SCALE_G			= (1 / 255.0) * 63.0;
+	if(channelwise) {
+		for(uint16_t y = 0; y < (uint16_t)app.DesktopImage.metrics().y; ++y) {
+			::gpk::view_array<uint8_t>											bline					= app.DesktopImageB[y];
+			::gpk::view_array<uint8_t>											gline					= app.DesktopImageG[y];
+			::gpk::view_array<uint8_t>											rline					= app.DesktopImageR[y];
+			::gpk::view_array<::gpk::SColorBGRA>								srcline					= app.DesktopImage[y];
+			uint8_t																* pbline				= bline.begin();
+			uint8_t																* pgline				= gline.begin();
+			uint8_t																* prline				= rline.begin();
+			const ::gpk::SColorBGRA												* psrcline				= srcline.begin();
+			if(app.Source16Bit) 
+				for(uint16_t x = 0; x < (uint16_t)app.DesktopImage.metrics().x; ++x) {
+					const ::gpk::SColorBGRA												srcpix					= psrcline[x];
+					pbline[x]														= (uint8_t)(srcpix.b * CHAN_SCALE_BR);
+					pgline[x]														= (uint8_t)(srcpix.g * CHAN_SCALE_G );
+					prline[x]														= (uint8_t)(srcpix.r * CHAN_SCALE_BR);
+				}	
+			else
+				for(uint16_t x = 0; x < (uint16_t)app.DesktopImage.metrics().x; ++x) {
+					const ::gpk::SColorBGRA												srcpix					= psrcline[x];
+					pbline[x]														= srcpix.b;
+					pgline[x]														= srcpix.g;
+					prline[x]														= srcpix.r;
+				}	
+		}
+		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) 
+			if (memcmp(app.DesktopImageBPrevious[iLine].begin(), app.DesktopImageB[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t)))  {
+				memcpy(app.DesktopImageBPrevious[iLine].begin(), app.DesktopImageB[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t));
+				linesToSendB.push_back(iLine);
+			}
+		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) 
+			if (memcmp(app.DesktopImageGPrevious[iLine].begin(), app.DesktopImageG[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t)))  {
+				memcpy(app.DesktopImageGPrevious[iLine].begin(), app.DesktopImageG[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t));
+				linesToSendG.push_back(iLine);
+			}
+		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) 
+			if (memcmp(app.DesktopImageRPrevious[iLine].begin(), app.DesktopImageR[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t)))  {
+				memcpy(app.DesktopImageRPrevious[iLine].begin(), app.DesktopImageR[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t));
+				linesToSendR.push_back(iLine);
+			}
+	}
+
 	if(false == app.Source16Bit) {
-		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) {
-			if (memcmp(app.DesktopImage.View[iLine].begin(), app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA)))  {
-				memcpy(app.DesktopImagePrevious.View[iLine].begin(), app.DesktopImage.View[iLine].begin(), app.DesktopImage.View.metrics().x * sizeof(::gpk::SColorBGRA));
+		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage.metrics().y; ++iLine) 
+			if (memcmp(app.DesktopImagePrevious[iLine].begin(), app.DesktopImage[iLine].begin(), app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA)))  {
+				memcpy(app.DesktopImagePrevious[iLine].begin(), app.DesktopImage[iLine].begin(), app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA));
 				linesToSend.push_back(iLine);
 			}
-		}
 	}
 	else {
 		for(uint32_t iPix = 0; iPix < app.DesktopImage.Texels.size(); ++iPix) {
 			::gpk::SColorBGRA														& colorSrc			= app.DesktopImage.Texels[iPix];
 			uint16_t																& colorDst			= app.DesktopImage16.Texels[iPix];
-			colorDst															 = ((uint16_t)(colorSrc.b / 255.0 * 31) << 0);
-			colorDst															|= ((uint16_t)(colorSrc.g / 255.0 * 63) << 5);
-			colorDst															|= ((uint16_t)(colorSrc.r / 255.0 * 31) << 11);
+			colorDst															 = ((uint16_t)(colorSrc.b * CHAN_SCALE_BR) << 0);
+			colorDst															|= ((uint16_t)(colorSrc.g * CHAN_SCALE_G ) << 5);
+			colorDst															|= ((uint16_t)(colorSrc.r * CHAN_SCALE_BR) << 11);
 		}
 		for(uint16_t iLine = 0; iLine < (uint16_t)app.DesktopImage16.metrics().y; ++iLine) {
-			if (memcmp(app.DesktopImage16			.View[iLine].begin(), app.DesktopImage16Previous.View[iLine].begin(), app.DesktopImage16.View.metrics().x * sizeof(uint16_t))) {
-				memcpy(app.DesktopImage16Previous	.View[iLine].begin(), app.DesktopImage16		.View[iLine].begin(), app.DesktopImage16.View.metrics().x * sizeof(uint16_t));
+			if (memcmp(app.DesktopImage16Previous.View[iLine].begin(), app.DesktopImage16.View[iLine].begin(), app.DesktopImage16.View.metrics().x * sizeof(uint16_t))) {
+				memcpy(app.DesktopImage16Previous.View[iLine].begin(), app.DesktopImage16.View[iLine].begin(), app.DesktopImage16.View.metrics().x * sizeof(uint16_t));
 				linesToSend.push_back(iLine);
 			}
 		}
 	}
+	const uint8_t															bits16					= app.Source16Bit ? 1 : 0;
 
-	static uint8_t															even					= 0;
-	++even;
-	even																%= 2;
-	even																= 1;
-
-	const uint8_t															format					= app.Source16Bit ? 1 : 0;
-
-	//info_printf("%s", "Lines to send: ");
-	::gpk::array_pod<byte_t>												lineCommand;
-	::gpk::array_pod<ubyte_t>												deflated;
+	::gpk::array_pod<byte_t>												lineCommand				= {};
+	::gpk::array_pod<ubyte_t>												deflated				= {};
 	uint32_t																lineSizeInBytes			= 0;
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
-		if(1 == format) 
+		if(1 == bits16) 
 			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(uint16_t);
-		else if(0 == format)													
-			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(uint16_t);
-		lineCommand.resize(lineSizeInBytes + sizeof(::dwh::SLineHeader));	// session command(1) + line format(1) + line numer(2) + image size(4)
+		else if(0 == bits16)													
+			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA);
+		lineCommand.resize(lineSizeInBytes + sizeof(::dwh::SLineHeader));	
 		::dwh::SLineHeader														& lineHeader			= *(::dwh::SLineHeader*)lineCommand.begin();
+		lineHeader															= {};	
 		lineHeader.SessionCommand											= 7;
-		lineHeader.Format.Bits16											= format;
-		//lineHeader.Format.Compression										= 0;
-		lineHeader.LineNumber												= linesToSend[iLine];
+		lineHeader.Format.Bits16											= bits16;
+		lineHeader.Area.Offset.y											= linesToSend[iLine];
 		lineHeader.ImageSize												= app.DesktopImage.metrics().Cast<uint16_t>();
-		if(format == 0) {
-			{
-				::gpk::mutex_guard														lock					(app.LockRender);
-				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage.View[lineHeader.LineNumber].begin(), lineSizeInBytes);
-			}
-		}
-		else if(format == 1) {	// 16 bit BGR
-			{
-				::gpk::mutex_guard														lock					(app.LockRender);
-				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage16.View[lineHeader.LineNumber].begin(), lineSizeInBytes);
-			}
+		{
+			::gpk::mutex_guard														lock					(app.LockRender);
+			if(0 == bits16) 
+				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage	.View[lineHeader.Area.Offset.y].begin(), lineSizeInBytes);
+			else // 16 bit BGR
+				memcpy(&lineCommand[sizeof(::dwh::SLineHeader)], app.DesktopImage16	.View[lineHeader.Area.Offset.y].begin(), lineSizeInBytes);
 		}
 		{
 			::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
 			for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
-				int32_t clientSession = -1;
+				int32_t																	clientSession				= -1;
 				for(uint32_t iSession = 0; iSession < app.Server.SessionMap.size(); ++iSession) {
 					if(app.Server.SessionMap[iSession].IdConnection == (int32_t)iClient) {
-						clientSession = (int32_t)iSession;
+						clientSession														= (int32_t)iSession;
 						break;
 					}
 				}
@@ -226,16 +267,12 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 				if(0 == app.Server.UDPServer.Clients[iClient])
 					continue;
 				::gpk::SUDPConnection													& connection				= *app.Server.UDPServer.Clients[iClient];
-				::gpk::connectionPushData(connection, connection.Queue, lineCommand, false, true);
+				::gpk::connectionPushData(connection, connection.Queue, lineCommand, true, app.Compress);
 			}
 		}
 		//::gpk::sleep(0);
 	}
 
-	//{
-	//	::gpk::mutex_guard														lock					(app.LockRender);
-	//	memcpy(app.DesktopImagePrevious.Texels.begin(), app.DesktopImage.Texels.begin(), app.DesktopImage.View.metrics().x * app.DesktopImage.View.metrics().y * sizeof(::gpk::SColorBGRA));
-	//}
 	app.RemoteInput.KeyboardPrevious									= app.RemoteInput.KeyboardCurrent;
 	app.RemoteInput.MousePrevious										= app.RemoteInput.MouseCurrent;
 	{

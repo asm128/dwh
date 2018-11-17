@@ -9,12 +9,15 @@ namespace dwh
 #pragma pack(push, 1)
 	struct SLineFormat {
 		uint8_t							Bits16				: 1;
-		//uint8_t							Compression			: 1;
+		uint8_t							ChannelB			: 1;
+		uint8_t							ChannelG			: 1;
+		uint8_t							ChannelR			: 1;
+		uint8_t							ChannelA			: 1;
 	};
 	struct SLineHeader {
 		uint8_t							SessionCommand		= 7;
 		SLineFormat						Format				= {};
-		uint16_t						LineNumber			= 0;
+		::gpk::SRectangle2D<uint16_t>	Area				= {{}, {(uint16_t)-1, (uint16_t)-1}};
 		uint16_t						AdditionalLines		= 0;
 		::gpk::SCoord2<uint16_t>		ImageSize			= {};
 	};

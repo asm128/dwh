@@ -46,8 +46,17 @@ namespace gme // I'm gonna use a different namespace in order to test a few thin
 		::gpk::SImage<uint16_t>													DesktopImage16;
 		::gpk::SImage<uint16_t>													DesktopImage16Previous;
 
+		::gpk::SImage<uint8_t>													DesktopImageB;
+		::gpk::SImage<uint8_t>													DesktopImageBPrevious;
+		::gpk::SImage<uint8_t>													DesktopImageG;
+		::gpk::SImage<uint8_t>													DesktopImageGPrevious;
+		::gpk::SImage<uint8_t>													DesktopImageR;
+		::gpk::SImage<uint8_t>													DesktopImageRPrevious;
+
+
 		bool																	Source16Bit							= true;
-		bool																	Compress							= false;
+		bool																	Compress							= true;
+		bool																	ChannelWise							= true;
 
 		SOffscreenPlatformDetail												OffscreenDetail;
 
