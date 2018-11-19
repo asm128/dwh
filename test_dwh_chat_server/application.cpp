@@ -414,6 +414,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		inputs[totalInputs].mi.dwExtraInfo	= 0;
 		inputs[totalInputs].mi.dx			= localMouse.x;
 		inputs[totalInputs].mi.dy			= localMouse.y;
+		++totalInputs;
 	}
 
 	error_if(totalInputs && 0 == ::SendInput(totalInputs, inputs, sizeof(INPUT)), "Failed to send inputs to Windows.");
