@@ -109,9 +109,10 @@ static		void													sessionClientConnect		(void * pclient)														{
 				queue														= app.Client.UDPClient.Queue.Received;
 				app.Client.UDPClient.Queue.Received.clear();
 			}
+			// --------------- Receive lines
 			for(uint32_t iRecv = 0; iRecv < queue.size(); ++iRecv) {
 				::gpk::ptr_nco<::gpk::SUDPConnectionMessage>					linemsg						= queue[iRecv];
-				if(7 != linemsg->Payload[0])
+				if(::dwh::SESSION_STAGE_CLIENT_IDLE != linemsg->Payload[0])
 					continue;
 				::dwh::SLineHeader												& lineHeader				= *(::dwh::SLineHeader*)linemsg->Payload.begin();
 				uint32_t														bits16						= lineHeader.Format.Bits16;	
@@ -135,21 +136,21 @@ static		void													sessionClientConnect		(void * pclient)														{
 					}
 				}
 			}
+
+			// --------------- Send user input
 			::gpk::array_pod<byte_t>										packetInputs;
-			packetInputs.push_back(7); 
+			packetInputs.push_back(::dwh::SESSION_STAGE_CLIENT_IDLE); 
 			bool															changed							= false;
-			if(false == forceSendInput && 0 == memcmp(&app.Framework.Input->KeyboardCurrent, &app.Framework.Input->KeyboardPrevious, sizeof(::gpk::SInputKeyboard))) 
-				packetInputs.push_back(0);
-			else {
-				packetInputs.push_back(1);
+			::dwh::SInputHeader												header;
+			header.Keyboard												= forceSendInput || 0 == memcmp(&app.Framework.Input->KeyboardCurrent	, &app.Framework.Input->KeyboardPrevious, sizeof(::gpk::SInputKeyboard));
+			header.Mouse												= forceSendInput || 0 == memcmp(&app.Framework.Input->MouseCurrent		, &app.Framework.Input->MousePrevious	, sizeof(::gpk::SInputMouse));
+			header.OffscreenSize										= app.Offscreen->Color.metrics().Cast<uint16_t>();
+			packetInputs.append((const byte_t*)&header, sizeof(::dwh::SInputHeader));
+			if(header.Keyboard) {
 				packetInputs.append((const byte_t*)&app.Framework.Input->KeyboardCurrent, sizeof(::gpk::SInputKeyboard));
 				changed														= true;
 			}
-
-			if(false == forceSendInput && 0 == memcmp(&app.Framework.Input->MouseCurrent, &app.Framework.Input->MousePrevious, sizeof(::gpk::SInputMouse))) 
-				packetInputs.push_back(0);
-			else {
-				packetInputs.push_back(1);
+			if(header.Mouse) {
 				packetInputs.append((const byte_t*)&app.Framework.Input->MouseCurrent	, sizeof(::gpk::SInputMouse));
 				changed														= true;
 			}

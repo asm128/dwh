@@ -127,9 +127,8 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::array_pod<uint16_t>	linesToSendB;
 	::gpk::array_pod<uint16_t>	linesToSendG;
 	::gpk::array_pod<uint16_t>	linesToSendR;
-	RECT																	rect					= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
-	//::gpk::SCoord2<uint32_t>												finalImageSize			= {320, 200};//{(uint32_t)rect.right / 2, (uint32_t)rect.bottom / 2};
-	::gpk::SCoord2<uint32_t>												finalImageSize			= {(uint32_t)rect.right / 2, (uint32_t)rect.bottom / 2};
+	const RECT																sizeDesktop				= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
+	::gpk::SCoord2<uint32_t>												finalImageSize			= {(uint32_t)sizeDesktop.right / 2, (uint32_t)sizeDesktop.bottom / 2};
 	//::gpk::SCoord2<uint32_t>												finalImageSize			= {640, 360};
 	{
 		::gpk::mutex_guard														lock					(app.LockRender);
@@ -150,10 +149,10 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 
 	::gpk::SImage<::gpk::SColorBGRA>										temp;
-	temp.resize((uint32_t)rect.right, (uint32_t)rect.bottom);
+	temp.resize((uint32_t)sizeDesktop.right, (uint32_t)sizeDesktop.bottom);
 	::gpk::view_grid<::gpk::SColorBGRA>										& view					= temp.View;//{pixels.begin(), (uint32_t)rect.right, (uint32_t)rect.bottom};
 	HDC																		dc						= GetDC(0);
-	::getBuffer(app.OffscreenDetail, dc, rect.right, rect.bottom, view);
+	::getBuffer(app.OffscreenDetail, dc, sizeDesktop.right, sizeDesktop.bottom, view);
 	ReleaseDC(0, dc);
 
 	::gpk::grid_scale(app.DesktopImage.View, view);
@@ -274,6 +273,9 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	app.RemoteInput.KeyboardPrevious									= app.RemoteInput.KeyboardCurrent;
 	app.RemoteInput.MousePrevious										= app.RemoteInput.MouseCurrent;
+
+	
+	::gpk::SCoord2<uint16_t>												remoteScreenSize		= {};
 	{
 		::gpk::mutex_guard														lock					(app.Server.UDPServer.Mutex);
 		for(uint32_t iClient = 0, countClients = app.Server.UDPServer.Clients.size(); iClient < countClients; ++iClient) {
@@ -288,28 +290,20 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 					if(0 == currentConn.Queue.Received[iRecv])
 						continue;
 					::gpk::SUDPConnectionMessage											& curMessage			= *currentConn.Queue.Received[iRecv];
-					if(curMessage.Payload[0] != 7)
+					if(curMessage.Payload[0] != ::dwh::SESSION_STAGE_CLIENT_IDLE)
 						continue;
-					else {
-						//info_printf("Received message from control client: %u.", (uint32_t)iClient);
-						if(curMessage.Payload[1] == 1) {
-							//info_printf("Keyboard input received.");
-							app.RemoteInput.KeyboardCurrent = *(::gpk::SInputKeyboard*)&curMessage.Payload[2];
-						}
-						if(curMessage.Payload[1] == 1) {
-							if(curMessage.Payload[2 + sizeof(::gpk::SInputKeyboard)] == 1) {
-								app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[2 + sizeof(::gpk::SInputKeyboard) + 1];
-								//info_printf("Mouse input received. Mouse pos: {%u, %u}. Time: %llu.", app.RemoteInput.MouseCurrent.Position.x, app.RemoteInput.MouseCurrent.Position.y, ::gpk::timeCurrentInMs());
-							}
-						}
-						else {
-							if(curMessage.Payload[2] == 1) {
-								app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[3];
-								//info_printf("Mouse input received (no Keyboard update). Mouse pos: {%u, %u}. Time: %llu.", app.RemoteInput.MouseCurrent.Position.x, app.RemoteInput.MouseCurrent.Position.y, ::gpk::timeCurrentInMs());
-							}
-						}
-						currentConn.Queue.Received[iRecv] = {};
+					const ::dwh::SInputHeader												& headerInput			= *(const ::dwh::SInputHeader*)&curMessage.Payload[1];
+					remoteScreenSize													= headerInput.OffscreenSize;
+					//info_printf("Received message from control client: %u.", (uint32_t)iClient);
+					if(headerInput.Keyboard) {
+						app.RemoteInput.KeyboardCurrent = *(::gpk::SInputKeyboard*)&curMessage.Payload[2];
+						//info_printf("Keyboard input received.");
 					}
+					if(headerInput.Mouse) {
+						app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[2 + (headerInput.Keyboard) ? sizeof(::gpk::SInputKeyboard) : 0];
+						//info_printf("Mouse input received. Mouse pos: {%u, %u}. Time: %llu.", app.RemoteInput.MouseCurrent.Position.x, app.RemoteInput.MouseCurrent.Position.y, ::gpk::timeCurrentInMs());
+					}
+					currentConn.Queue.Received[iRecv] = {};
 				}
 			}
 
@@ -404,6 +398,22 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		inputs[totalInputs].mi.time			= 0;
 		inputs[totalInputs].mi.dwExtraInfo	= 0;
 		++totalInputs;
+	}
+
+
+	{ // mouse move
+		::gpk::SCoord2<double>						screenScale;
+		screenScale.x	= 1.0 / remoteScreenSize.x * sizeDesktop.right;
+		screenScale.y	= 1.0 / remoteScreenSize.y * sizeDesktop.bottom;
+		::gpk::SCoord2<uint16_t>					localMouse;
+		localMouse.x	= (uint16_t)(screenScale.x  * app.RemoteInput.MouseCurrent.Position.x);
+		localMouse.y	= (uint16_t)(screenScale.y  * app.RemoteInput.MouseCurrent.Position.y);
+		inputs[totalInputs].type			= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+		inputs[totalInputs].mi.time			= 0;
+		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].mi.dx			= localMouse.x;
+		inputs[totalInputs].mi.dy			= localMouse.y;
 	}
 
 	error_if(totalInputs && 0 == ::SendInput(totalInputs, inputs, sizeof(INPUT)), "Failed to send inputs to Windows.");

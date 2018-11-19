@@ -21,6 +21,12 @@ namespace dwh
 		uint16_t						AdditionalLines		= 0;
 		::gpk::SCoord2<uint16_t>		ImageSize			= {};
 	};
+
+	struct SInputHeader {
+		bool							Keyboard			: 1;
+		bool							Mouse				: 1;
+		::gpk::SCoord2<uint16_t>		OffscreenSize		= {};
+	};
 #pragma pack(pop)
 }
 
