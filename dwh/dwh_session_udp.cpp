@@ -37,11 +37,11 @@
 			switch(command.Command) {																			  
 			case ::dwh::SESSION_STAGE_CLIENT_IDENTIFY					: 
 				ce_if(errored(::dwh::authorityServerIdentifyResponse		(authority, msg.Payload, response)), "Failed to process client command: %u.", (uint32_t)msg.Payload[0]); 
-				ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+				ce_if(errored(::gpk::connectionPushData(client, client.Queue, response, true, true, 50)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
 				break;
 			case ::dwh::SESSION_STAGE_SERVICE_EVALUATE_CLIENT_REQUEST	: 
 				ce_if(errored(::dwh::authorityServerConfirmClientResponse	(authority, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)msg.Payload[0]); 
-				ce_if(errored(::gpk::connectionPushData(client, client.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+				ce_if(errored(::gpk::connectionPushData(client, client.Queue, response, true, true, 50)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
 				break;
 			default: 
 				error_printf("Unrecognized session command: %u.", (uint32_t)command.Command);
@@ -69,7 +69,7 @@
 
 	::gpk::array_pod<byte_t>												dataToSend;
 	::dwh::authorityClientIdentifyRequest	(client.Client, dataToSend);
-	::gpk::connectionPushData(client.UDPClient, client.UDPClient.Queue, dataToSend);
+	::gpk::connectionPushData(client.UDPClient, client.UDPClient.Queue, dataToSend, true, true, 50);
 	::gpk::array_pod<byte_t>												dataReceived;
 	while(true) {
 		::gpk::clientUpdate(client.UDPClient);
@@ -104,7 +104,7 @@
 
 	client.UDPClient.AddressConnect										= client.AddressServer;
 	ree_if(errored(::gpk::clientConnect(client.UDPClient)), "Failed to connect to service's server at: %u.%u.%u.%u:%u.", GPK_IPV4_EXPAND(client.UDPClient.AddressConnect));
-	::gpk::connectionPushData(client.UDPClient, client.UDPClient.Queue, dataToSend);
+	::gpk::connectionPushData(client.UDPClient, client.UDPClient.Queue, dataToSend, true, true, 50);
 	dataReceived.clear();
 	while(true) {
 		::gpk::clientUpdate(client.UDPClient);
@@ -201,7 +201,7 @@
 						::gpk::clientDisconnect(session.UDPClient);
 						::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, session.UDPClient.AddressConnect);
 						ree_if(errored(::gpk::clientConnect(session.UDPClient)), "Failed to connect to authority server at: %u.%u.%u.%u:%u.", GPK_IPV4_EXPAND(session.UDPClient.AddressConnect));
-						ce_if(errored(::gpk::connectionPushData(session.UDPClient, session.UDPClient.Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command);
+						ce_if(errored(::gpk::connectionPushData(session.UDPClient, session.UDPClient.Queue, response, true, true, 50)), "Failed to push response data for command: %u.", (uint32_t)command.Command);
 					}
 					break;
 				//case ::dwh::SESSION_STAGE_AUTHORITY_CONFIRM_CLIENT		: 
@@ -243,7 +243,7 @@
 			ce_if(errored(indexClientAccepted = ::dwh::sessionServerAccept(session.Server, msg.Payload, response)), "Failed to process server command: %u.", (uint32_t)command.Command); 
 			ce_if(session.Server.Clients.size() <= (uint32_t)indexClientAccepted, "Invalid client index: %i.", indexClientAccepted);
 			indexClientAccepted = session.SessionMap[indexClientAccepted].IdConnection;
-			ce_if(errored(::gpk::connectionPushData(*session.UDPServer.Clients[indexClientAccepted], session.UDPServer.Clients[indexClientAccepted]->Queue, response)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
+			ce_if(errored(::gpk::connectionPushData(*session.UDPServer.Clients[indexClientAccepted], session.UDPServer.Clients[indexClientAccepted]->Queue, response, true, true, 50)), "Failed to push response data for command: %u.", (uint32_t)command.Command); 
 			break;
 		default: 
 			error_printf("Unrecognized session command: %u.", (uint32_t)command.Command);

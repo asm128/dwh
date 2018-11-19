@@ -26,8 +26,10 @@ static		void													sessionClientConnect		(void * pclient)														{
 	::dwh::SUDPSessionClient												& client					= *(::dwh::SUDPSessionClient *)pclient;
 	::gpk::tcpipAddress(32765, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressServer	);
 	::gpk::tcpipAddress(32766, 0, ::gpk::TRANSPORT_PROTOCOL_UDP, client.AddressAuthority);
-	//client.AddressServer		= {{192, 168, 0, 179}, 32765};
-	//client.AddressAuthority		= {{192, 168, 0, 179}, 32766};
+	//client.AddressServer	= {{192,168,1,4},32765};
+	//client.AddressAuthority	= {{192,168,1,4},32766};
+	//client.AddressServer		= {{192, 168, 1, 54}, 32765};
+	//client.AddressAuthority		= {{192, 168, 1, 54}, 32766};
 	client.Client.IdServer												= 0;
 	error_if(errored(::dwh::sessionClientConnect(client)), "Failed to connect to server. %s", "");
 }
@@ -53,6 +55,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 	::gpk::controlSetParent(gui, app.IdExit, -1);
 	::gpk::tcpipInitialize();
 
+	::gpk::serverStart(app.Server, 31321);
 	_beginthread(::sessionClientConnect, 0, &app.Client);
 	return 0; 
 }
@@ -74,7 +77,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 		::gpk::guiProcessInput(gui, *app.Framework.Input);
 	}
 	if(app.Framework.Input->MouseCurrent.Deltas.z) {
-		gui.Zoom.ZoomLevel													+= app.Framework.Input->MouseCurrent.Deltas.z * (1.0 / (120 * 4));
+		gui.Zoom.ZoomLevel													+= app.Framework.Input->MouseCurrent.Deltas.z * (1.0 / (120LL * 4));
 		::gpk::guiUpdateMetrics(gui, app.Offscreen->Color.metrics(), true);
 	}
  
@@ -151,13 +154,14 @@ static		void													sessionClientConnect		(void * pclient)														{
 				changed														= true;
 			}
 			if(changed)
-				::gpk::connectionPushData(app.Client.UDPClient, app.Client.UDPClient.Queue, packetInputs);
+				::gpk::connectionPushData(app.Client.UDPClient, app.Client.UDPClient.Queue, packetInputs, true, true, 10);
 		}
 	}
 	char buffer[256] = {};
 	sprintf_s(buffer, "Last frame seconds: %g.", app.Framework.FrameInfo.Seconds.LastFrame);
 	SetWindowText(app.Framework.MainDisplay.PlatformDetail.WindowHandle, buffer);
 
+	::gpk::sleep(1);
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
 	return 0; 

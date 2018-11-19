@@ -74,6 +74,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	error_if(errored(::dwh::sessionAuthorityUpdate(app.Server)), "%s.", "Unknown error");
 	//timer.Frame();
 	//warning_printf("Update time: %f.", (float)timer.LastTimeSeconds);
+	::gpk::sleep(1);
 	return 0; 
 }
 

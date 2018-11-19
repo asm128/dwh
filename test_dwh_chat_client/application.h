@@ -20,6 +20,7 @@ namespace gme // I'm gonna use a different namespace in order to test a few thin
 		::gpk::ptr_obj<::gpk::SRenderTarget<::gpk::SColorBGRA, uint32_t>>		Offscreen							= {};
 
 		::dwh::SUDPSessionClient												Client								= {};
+		::gpk::SUDPServer														Server;
 
 		int32_t																	IdExit								= -1;
 

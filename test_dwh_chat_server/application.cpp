@@ -165,7 +165,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			::gpk::view_array<uint8_t>											bline					= app.DesktopImageB[y];
 			::gpk::view_array<uint8_t>											gline					= app.DesktopImageG[y];
 			::gpk::view_array<uint8_t>											rline					= app.DesktopImageR[y];
-			::gpk::view_array<::gpk::SColorBGRA>								srcline					= app.DesktopImage[y];
+			const ::gpk::view_array<const ::gpk::SColorBGRA>					srcline					= app.DesktopImage[y];
 			uint8_t																* pbline				= bline.begin();
 			uint8_t																* pgline				= gline.begin();
 			uint8_t																* prline				= rline.begin();
@@ -200,6 +200,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 				memcpy(app.DesktopImageRPrevious[iLine].begin(), app.DesktopImageR[iLine].begin(), app.DesktopImage.metrics().x * sizeof(uint8_t));
 				linesToSendR.push_back(iLine);
 			}
+
 	}
 
 	if(false == app.Source16Bit) {
@@ -229,12 +230,10 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::array_pod<byte_t>												lineCommand				= {};
 	::gpk::array_pod<ubyte_t>												deflated				= {};
 	uint32_t																lineSizeInBytes			= 0;
+	const uint32_t															pixelWidth				= (0 == bits16) ? sizeof(::gpk::SColorBGRA) : sizeof(uint16_t);
 	for(uint32_t iLine = 0; iLine < linesToSend.size(); ++iLine) {
 		//info_printf("Line (%u): %u", iLine, (uint32_t)linesToSend[iLine]);
-		if(1 == bits16) 
-			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(uint16_t);
-		else if(0 == bits16)													
-			lineSizeInBytes														= app.DesktopImage.metrics().x * sizeof(::gpk::SColorBGRA);
+		lineSizeInBytes														= app.DesktopImage.metrics().x * pixelWidth;
 		lineCommand.resize(lineSizeInBytes + sizeof(::dwh::SLineHeader));	
 		::dwh::SLineHeader														& lineHeader			= *(::dwh::SLineHeader*)lineCommand.begin();
 		lineHeader															= {};	
@@ -325,7 +324,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	}
 	if(app.RemoteInput.MouseCurrent.Deltas.z) {
 		//gui.Zoom.ZoomLevel													+= app.Framework.Input->MouseCurrent.Deltas.z * (1.0 / (120 * 4));
-		gui.Zoom.ZoomLevel													+= app.RemoteInput.MouseCurrent.Deltas.z * (1.0 / (120 * 4));
+		gui.Zoom.ZoomLevel													+= app.RemoteInput.MouseCurrent.Deltas.z * (1.0 / (120LL * 4));
 		::gpk::guiUpdateMetrics(gui, app.Offscreen->Color.metrics(), true);
 	}
  
@@ -411,7 +410,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	::dwh::sessionServerUpdate(app.Server);
 
-	::gpk::sleep(0);
+	::gpk::sleep(1);
 
 	char buffer[256] = {};
 	sprintf_s(buffer, "Last frame seconds: %g.", app.Framework.FrameInfo.Seconds.LastFrame);
