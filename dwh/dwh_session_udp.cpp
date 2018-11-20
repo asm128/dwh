@@ -109,18 +109,21 @@
 	while(true) {
 		::gpk::clientUpdate(client.UDPClient);
 		break_warn_if(INVALID_SOCKET == client.UDPClient.Socket || ::gpk::UDP_CONNECTION_STATE_DISCONNECTED == client.UDPClient.State, "Client closed.");
-		for(uint32_t iRcv = 0, countRcv = client.UDPClient.Queue.Received.size(); iRcv < countRcv; ++iRcv) {
-			::gpk::ptr_obj<::gpk::SUDPConnectionMessage>							message						= client.UDPClient.Queue.Received[iRcv];
-			if(0 == message || 0 == message->Payload.size())
-				continue;
-			::dwh::SSessionCommand													& command					= *(::dwh::SSessionCommand*)message->Payload.begin();
-			switch(command.Command) {
-			case ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT	:	
-				info_printf("%s", "Received accept response.");
-				dataReceived														= message->Payload;
-				break;
-			//default:
-			//	error_printf("Invalid session command received by client: %u.", (uint32_t)command.Command);
+		{
+			::gpk::mutex_guard														lockRecv					(client.UDPClient.Queue.MutexReceive);
+			for(uint32_t iRcv = 0, countRcv = client.UDPClient.Queue.Received.size(); iRcv < countRcv; ++iRcv) {
+				::gpk::ptr_obj<::gpk::SUDPConnectionMessage>							message						= client.UDPClient.Queue.Received[iRcv];
+				if(0 == message || 0 == message->Payload.size())
+					continue;
+				::dwh::SSessionCommand													& command					= *(::dwh::SSessionCommand*)message->Payload.begin();
+				switch(command.Command) {
+				case ::dwh::SESSION_STAGE_SERVER_ACCEPT_CLIENT	:	
+					info_printf("%s", "Received accept response.");
+					dataReceived														= message->Payload;
+					break;
+				//default:
+				//	error_printf("Invalid session command received by client: %u.", (uint32_t)command.Command);
+				}
 			}
 		}
 		if(0 != dataReceived.size())

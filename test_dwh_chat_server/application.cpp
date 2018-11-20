@@ -296,11 +296,11 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 					remoteScreenSize													= headerInput.OffscreenSize;
 					//info_printf("Received message from control client: %u.", (uint32_t)iClient);
 					if(headerInput.Keyboard) {
-						app.RemoteInput.KeyboardCurrent = *(::gpk::SInputKeyboard*)&curMessage.Payload[2];
+						app.RemoteInput.KeyboardCurrent = *(::gpk::SInputKeyboard*)&curMessage.Payload[1 + sizeof(::dwh::SInputHeader)];
 						//info_printf("Keyboard input received.");
 					}
 					if(headerInput.Mouse) {
-						app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[2 + (headerInput.Keyboard) ? sizeof(::gpk::SInputKeyboard) : 0];
+						app.RemoteInput.MouseCurrent = *(::gpk::SInputMouse*)&curMessage.Payload[1 + sizeof(::dwh::SInputHeader) + ((headerInput.Keyboard) ? sizeof(::gpk::SInputKeyboard) : 0)];
 						//info_printf("Mouse input received. Mouse pos: {%u, %u}. Time: %llu.", app.RemoteInput.MouseCurrent.Position.x, app.RemoteInput.MouseCurrent.Position.y, ::gpk::timeCurrentInMs());
 					}
 					currentConn.Queue.Received[iRecv] = {};
