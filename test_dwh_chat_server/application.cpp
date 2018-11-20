@@ -45,7 +45,6 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::tcpipInitialize();
 	::gpk::serverStart(app.Server.UDPServer, 32765);
 
-
 	app.RemoteInput = {};
 	return 0; 
 }
@@ -128,7 +127,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::array_pod<uint16_t>	linesToSendG;
 	::gpk::array_pod<uint16_t>	linesToSendR;
 	const RECT																sizeDesktop				= {0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN)};
-	::gpk::SCoord2<uint32_t>												finalImageSize			= {(uint32_t)sizeDesktop.right / 2, (uint32_t)sizeDesktop.bottom / 2};
+	::gpk::SCoord2<uint32_t>												finalImageSize			= {(uint32_t)sizeDesktop.right / app.DesktopInverseScale.x, (uint32_t)sizeDesktop.bottom / app.DesktopInverseScale.y};
 	//::gpk::SCoord2<uint32_t>												finalImageSize			= {640, 360};
 	{
 		::gpk::mutex_guard														lock					(app.LockRender);
@@ -330,8 +329,8 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			info_printf("Key down (%u) '%c'", iKey, (char)iKey);
 			inputs[totalInputs].type			= INPUT_KEYBOARD;
 			inputs[totalInputs].ki.wVk			= 0;
-			inputs[totalInputs].ki.wScan		= (uint8_t)iKey;
-			inputs[totalInputs].ki.dwFlags		= 0;
+			inputs[totalInputs].ki.wScan		= (uint16_t)iKey;
+			inputs[totalInputs].ki.dwFlags		= KEYEVENTF_SCANCODE;
 			inputs[totalInputs].ki.time			= 0;
 			inputs[totalInputs].ki.dwExtraInfo	= 0;
 			++totalInputs;
@@ -341,7 +340,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 			inputs[totalInputs].type			= INPUT_KEYBOARD;
 			inputs[totalInputs].ki.wVk			= 0;
 			inputs[totalInputs].ki.wScan		= (uint8_t)iKey;
-			inputs[totalInputs].ki.dwFlags		= KEYEVENTF_KEYUP;
+			inputs[totalInputs].ki.dwFlags		= KEYEVENTF_KEYUP | KEYEVENTF_SCANCODE;
 			inputs[totalInputs].ki.time			= 0;
 			inputs[totalInputs].ki.dwExtraInfo	= 0;
 			++totalInputs;
@@ -351,69 +350,69 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	totalInputs	= 0;
 	if(app.RemoteInput.ButtonDown(0)) {
 		info_printf("Button down (0)");
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_LEFTDOWN;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_LEFTDOWN;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
 		++totalInputs;
 	}
 	else if(app.RemoteInput.ButtonUp(0)) {
 		info_printf("Button up (0)");
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_LEFTUP;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_LEFTUP;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
 		++totalInputs;
 	}
 
 	if(app.RemoteInput.ButtonDown(1)) {
 		info_printf("Button down (1)");
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_RIGHTDOWN;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_RIGHTDOWN;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
 		++totalInputs;
 	}
 	else if(app.RemoteInput.ButtonUp(1)) {
 		info_printf("Button up (1)");
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_RIGHTUP;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_RIGHTUP;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
 		++totalInputs;
 	}
 
 	if(app.RemoteInput.ButtonDown(2)) {
 		info_printf("Button down (2)");
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_MIDDLEDOWN;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_MIDDLEDOWN;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
 		++totalInputs;
 	}
 	else if(app.RemoteInput.ButtonUp(2)) {
 		info_printf("Button up (2)");
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_MIDDLEUP;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_MIDDLEUP;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
 		++totalInputs;
 	}
 
 
-	{ // mouse move
+	if(app.RemoteInput.MousePrevious.Position != app.RemoteInput.MouseCurrent.Position) { // mouse move
 		::gpk::SCoord2<double>						screenScale;
-		screenScale.x	= (1.0 / remoteScreenSize.x) * sizeDesktop.right;
-		screenScale.y	= (1.0 / remoteScreenSize.y) * sizeDesktop.bottom;
+		screenScale.x							= (1.0 / remoteScreenSize.x) * 0xFFFFU;//sizeDesktop.right;
+		screenScale.y							= (1.0 / remoteScreenSize.y) * 0xFFFFU;//sizeDesktop.bottom;
 		::gpk::SCoord2<uint16_t>					localMouse;
-		localMouse.x	= (uint16_t)(screenScale.x  * app.RemoteInput.MouseCurrent.Position.x);
-		localMouse.y	= (uint16_t)(screenScale.y  * app.RemoteInput.MouseCurrent.Position.y);
-		inputs[totalInputs].type			= INPUT_MOUSE;
-		inputs[totalInputs].mi.dwFlags		= MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
-		inputs[totalInputs].mi.time			= 0;
-		inputs[totalInputs].mi.dwExtraInfo	= 0;
-		inputs[totalInputs].mi.dx			= localMouse.x;
-		inputs[totalInputs].mi.dy			= localMouse.y;
+		localMouse.x							= (uint16_t)(screenScale.x  * app.RemoteInput.MouseCurrent.Position.x);
+		localMouse.y							= (uint16_t)(screenScale.y  * app.RemoteInput.MouseCurrent.Position.y);
+		inputs[totalInputs].type				= INPUT_MOUSE;
+		inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+		inputs[totalInputs].mi.time				= 0;
+		inputs[totalInputs].mi.dwExtraInfo		= 0;
+		inputs[totalInputs].mi.dx				= localMouse.x;
+		inputs[totalInputs].mi.dy				= localMouse.y;
 		++totalInputs;
 	}
 

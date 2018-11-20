@@ -40,6 +40,8 @@ namespace gme // I'm gonna use a different namespace in order to test a few thin
 		::std::mutex															LockGUI;
 		::std::mutex															LockRender;
 
+
+		::gpk::SCoord2<uint32_t>												DesktopInverseScale					= {2, 2};
 		::gpk::SImage<::gpk::SColorBGRA>										DesktopImage;
 		::gpk::SImage<::gpk::SColorBGRA>										DesktopImagePrevious;
 
