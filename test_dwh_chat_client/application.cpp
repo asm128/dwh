@@ -99,6 +99,7 @@ static		void													sessionClientConnect		(void * pclient)														{
 	static uint32_t													redundancy						= 0;
 	++redundancy;
 	bool															forceSendInput					= (0 == (redundancy % 3));
+	forceSendInput = 0;
 
 	//::gpk::array_pod<uint16_t>										lineCodecCache					= {};
 	if(app.Client.UDPClient.State == ::gpk::UDP_CONNECTION_STATE_IDLE) {

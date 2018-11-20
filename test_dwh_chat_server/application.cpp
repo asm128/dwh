@@ -403,8 +403,8 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	{ // mouse move
 		::gpk::SCoord2<double>						screenScale;
-		screenScale.x	= 1.0 / remoteScreenSize.x * sizeDesktop.right;
-		screenScale.y	= 1.0 / remoteScreenSize.y * sizeDesktop.bottom;
+		screenScale.x	= (1.0 / remoteScreenSize.x) * sizeDesktop.right;
+		screenScale.y	= (1.0 / remoteScreenSize.y) * sizeDesktop.bottom;
 		::gpk::SCoord2<uint16_t>					localMouse;
 		localMouse.x	= (uint16_t)(screenScale.x  * app.RemoteInput.MouseCurrent.Position.x);
 		localMouse.y	= (uint16_t)(screenScale.y  * app.RemoteInput.MouseCurrent.Position.y);
