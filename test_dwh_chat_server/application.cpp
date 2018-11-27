@@ -107,8 +107,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	::gpk::SGUI																& gui						= framework.GUI;
 	{
 		::gpk::mutex_guard														lock						(app.LockGUI);
-		//::gpk::guiProcessInput(gui, *app.Framework.Input);
-		//::gpk::guiProcessInput(gui, app.RemoteInput);
+		::gpk::guiProcessInput(gui, *app.Framework.Input);
 	}
 	for(uint32_t iControl = 0, countControls = gui.Controls.Controls.size(); iControl < countControls; ++iControl) {
 		const ::gpk::SControlState												& controlState				= gui.Controls.States[iControl];
@@ -272,7 +271,7 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 
 	app.RemoteInput.KeyboardPrevious									= app.RemoteInput.KeyboardCurrent;
 	app.RemoteInput.MousePrevious										= app.RemoteInput.MouseCurrent;
-
+	app.RemoteInput.MouseCurrent.Deltas									= {};
 	
 	::gpk::SCoord2<uint16_t>												remoteScreenSize		= {};
 	{
@@ -310,17 +309,11 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 	}
 	::gpk::SCoord2<int32_t> deltas = app.RemoteInput.MouseCurrent.Position - app.RemoteInput.MousePrevious.Position;
 	app.RemoteInput.MouseCurrent.Deltas = {deltas.x, deltas.y, app.RemoteInput.MouseCurrent.Deltas.z};
-	{
-		::gpk::mutex_guard														lock						(app.LockGUI);
-		//::gpk::guiProcessInput(gui, *app.Framework.Input);
-		::gpk::guiProcessInput(gui, app.RemoteInput);
-	}
 	if(app.RemoteInput.MouseCurrent.Deltas.z) {
 		//gui.Zoom.ZoomLevel													+= app.Framework.Input->MouseCurrent.Deltas.z * (1.0 / (120 * 4));
 		gui.Zoom.ZoomLevel													+= app.RemoteInput.MouseCurrent.Deltas.z * (1.0 / (120LL * 4));
 		::gpk::guiUpdateMetrics(gui, app.Offscreen->Color.metrics(), true);
 	}
- 
 	//SendInput();
 	INPUT			inputs[256]	= {};
 	uint32_t		totalInputs	= 0;
@@ -415,6 +408,22 @@ GPK_DEFINE_APPLICATION_ENTRY_POINT(::gme::SApplication, "Module Explorer");
 		inputs[totalInputs].mi.dy				= localMouse.y;
 		++totalInputs;
 	}
+
+	//if(app.RemoteInput.MouseCurrent.Deltas.x || app.RemoteInput.MouseCurrent.Deltas.y) { // mouse move
+	//	::gpk::SCoord2<double>						screenScale;
+	//	screenScale.x							= (1.0 / remoteScreenSize.x) * (int16_t)0x7FFF;//sizeDesktop.right;
+	//	screenScale.y							= (1.0 / remoteScreenSize.y) * (int16_t)0x7FFF;//sizeDesktop.bottom;
+	//	::gpk::SCoord2<int32_t>						localMouse;
+	//	localMouse.x							= (int32_t)(screenScale.x  * app.RemoteInput.MouseCurrent.Deltas.x);
+	//	localMouse.y							= (int32_t)(screenScale.y  * app.RemoteInput.MouseCurrent.Deltas.y);
+	//	inputs[totalInputs].type				= INPUT_MOUSE;
+	//	inputs[totalInputs].mi.dwFlags			= MOUSEEVENTF_MOVE;
+	//	inputs[totalInputs].mi.time				= 0;
+	//	inputs[totalInputs].mi.dwExtraInfo		= 0;
+	//	inputs[totalInputs].mi.dx				= localMouse.x;
+	//	inputs[totalInputs].mi.dy				= localMouse.y;
+	//	++totalInputs;
+	//}
 
 	error_if(totalInputs && 0 == ::SendInput(totalInputs, inputs, sizeof(INPUT)), "Failed to send inputs to Windows.");
 

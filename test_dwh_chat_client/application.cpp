@@ -30,6 +30,11 @@ static		void													sessionClientConnect		(void * pclient)														{
 	//client.AddressAuthority	= {{192,168,1,4},32766};
 	//client.AddressServer		= {{192, 168, 1, 54}, 32765};
 	//client.AddressAuthority		= {{192, 168, 1, 54}, 32766};
+	// 190.225.243.240
+	//client.AddressServer		= {{190, 225, 243, 240}, 32765};
+	//client.AddressAuthority		= {{190, 225, 243, 240}, 32766};
+	client.AddressServer		= {{192, 168, 0, 179}, 32765};
+	client.AddressAuthority		= {{192, 168, 0, 179}, 32766};
 	client.Client.IdServer												= 0;
 	error_if(errored(::dwh::sessionClientConnect(client)), "Failed to connect to server. %s", "");
 }
